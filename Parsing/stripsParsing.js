@@ -55,13 +55,13 @@ function displayHValuesSTRIPS(state, domain, problem){
     console.log("");
     
     for (var child in childStates){
-        var heuristicValue = 0;
+        var heuristicValue = goalState.length;
         var currentChildStateFluents = childStates[child].state.actions;
         currentChildHeuristicValue = {'action': StripsManager.actionToString(childStates[child].action),  'value': heuristicValue, 'resultState' : currentChildStateFluents};
 
         for(var fluent in currentChildStateFluents){
             if(compareFluents(goalState, currentChildStateFluents[fluent])){
-                heuristicValue = heuristicValue + 1;
+                heuristicValue = heuristicValue - 1;
             }
         }
 
