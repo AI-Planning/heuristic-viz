@@ -1,47 +1,8 @@
-// Temp tree data 
-var treeData = [
-  {
-    "name": "Top Level",
-    "parent": "null",
-    "value": 5,
-    "type": "black",
-    "level": "blue",
-    "children": [
-      {
-        "name": "Level 2: A",
-        "parent": "Top Level",
-        "value": 5,
-        "type": "grey",
-        "level": "blue",
-        "children": [
-          {
-            "name": "Son of A",
-            "parent": "Level 2: A",
-            "value": 5,
-            "type": "steelblue",
-            "level": "blue"
-          },
-          {
-            "name": "Daughter of A",
-            "parent": "Level 2: A",
-            "value": 5,
-            "type": "steelblue",
-            "level": "blue"
-          }
-        ]
-      },
-      {
-        "name": "Level 2: B",
-        "parent": "Top Level",
-        "value": 5,
-        "type": "grey",
-        "level": "blue"
-      }
-    ]
-  }
-];
 
-var tree, root, svg, diagonal, treeHeight, stateCounter,i, duration;
+
+var tree, svg, diagonal, treeHeight, stateCounter,i, duration, treeData,
+problem, domain, root, goalState;
+
 
 function makeTree(){
   window.toastr.info("Make Tree is Running")
@@ -64,19 +25,28 @@ function makeTree(){
         .attr("height", height + margin.top + margin.bottom)
         .append("g").attr("transform","translate(" + margin.left + "," + margin.top + ")");
 
-  root = treeData[0];
+
   root.x0 = height/2;
   root.y0 = 0;
 
-  function collapse(d){
-    if (d.children){
-      d._children = d.children;
-      d._children.forEach(collapse);
-      d.children = null;
-    }
-  }
+  // function collapse(d){
+  //   if (d.children){
+  //     d._children = d.children;
+  //     d._children.forEach(collapse);
+  //     d.children = null;
+  //   }
+  // }
+  console.log(root)
+  var childStates = StripsManager.getChildStates(domain.states, root);
+  var actions = StripsManager.applicableActions(domain.states, problem.states[0]);  // root.children.forEach(collapse);
+  var childState = StripsManager.applyAction(actions[0], problem.states[0]);
 
-  root.children.forEach(collapse);
+  console.log('Current state');
+  console.log(StripsManager.stateToString(problem.states[0]));
+  console.log('Applying action');
+  console.log(StripsManager.actionToString(actions[0]));
+  var childState = StripsManager.applyAction(actions[0], problem.states[0]);
+  // childStates.forEach(collapse);
   console.log(root);
   update(root);
   d3.select(self.frameElement).style("height", "800px");
@@ -180,7 +150,7 @@ function update(source){
 --------------------------------------------------------------------------------
 */
 
-// Called when you click 'Go' on the file chooser, we can change this name 
+// Called when you click 'Go' on the file chooser, we can change this name
 function showTree() {
   console.log("Clicked show tree");
   // Getting string versions of the selected files
@@ -195,15 +165,22 @@ function showTree() {
   StripsManager.loadFromString(probText, domText, function(p, d) {
     // p = Problem
     // d = Domain
-    console.log(p);
-    console.log(d);
-
+    console.log("problem", p);
+    console.log("domain", d);
+    // problems = p;
+    // domains = d;
+    // treeData = {domain: d, problem: p};
+    root = p.states[0]
+    // root = problem.states[0];
+    goalState = p.states[1].actions;
+    domain = d;
+    problem = p;
     // Want to work from here to specify states and such, going to have to figure out
     // how to dynamically update the visuals based on current state and possible next states?
+    launchViz();
   });
 
   // Calls launchviz which just makes a new tab with a button to make the dummy data tree
-  launchViz();
 }
 
 function launchViz(){
