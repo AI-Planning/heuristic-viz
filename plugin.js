@@ -1,3 +1,4 @@
+// Temp tree data 
 var treeData = [
   {
     "name": "Top Level",
@@ -173,28 +174,50 @@ function update(source){
     }
     update(d);
   }
+/*
+--------------------------------------------------------------------------------
+                                END OF TREE CODE
+--------------------------------------------------------------------------------
+*/
+
+// Called when you click 'Go' on the file chooser, we can change this name 
+function showTree() {
+  console.log("Clicked show tree");
+  // Getting string versions of the selected files
+  var domText = window.ace.edit($('#domainSelection').find(':selected').val()).getSession().getValue();
+  var probText = window.ace.edit($('#problemSelection').find(':selected').val()).getSession().getValue();
+
+  // Lowering the choose file modal menu
+  $('#chooseFilesModal').modal('toggle');
+  $('#plannerURLInput').show();
+
+  // This parses the problem and domain text, returns from a callback
+  StripsManager.loadFromString(probText, domText, function(p, d) {
+    // p = Problem
+    // d = Domain
+    console.log(p);
+    console.log(d);
+
+    // Want to work from here to specify states and such, going to have to figure out
+    // how to dynamically update the visuals based on current state and possible next states?
+  });
+
+  // Calls launchviz which just makes a new tab with a button to make the dummy data tree
+  launchViz();
+}
 
 function launchViz(){
-  console.log("1");
-  window.viz_dom_id = did;
-  var did = prompt('Domain Id?', window.viz_dom_id);
-  //window.toastr.info(did + typeof(did));
-  if (did == "13"){
-   // window.toastr.info("13!");
-    window.new_tab('Viz2.0', function(editor_name){
-      $('#' +editor_name).html('<div style = "margin:13px 26px"><h2>Viz</h2>' +
-      '<button onclick="makeTree()" style="float:right;margin-left:16px">makeTree</button>' +
-      '<node circle style ="fill:#fff;stroke:black;stroke-width:3px;></node circle>' +
-      '<p id="hv-output"></p>');
-    });
-  }
+  window.new_tab('Viz2.0', function(editor_name){
+    $('#' +editor_name).html('<div style = "margin:13px 26px"><h2>Viz</h2>' +
+    '<button onclick="makeTree()" style="float:right;margin-left:16px">makeTree</button>' +
+    '<node circle style ="fill:#fff;stroke:black;stroke-width:3px;></node circle>' +
+    '<p id="hv-output"></p>');
+  });
 }
 
 define(function () {
     window.d3_loaded = false;
-    window.viz_dom_id = 13;
   return {
-
       name: "Heuristic Viz",
       author: "Caitlin Aspinall",
       email: "16cea5@queensu.com",
@@ -202,11 +225,10 @@ define(function () {
 
       initialize: function() {
         console.log("Plugin initialized! :D");
+        // Loads D3 viz
         if ((!window.d3_loaded)){
-
-          require.config({ paths: { d3: "http://d3js.org/d3.v3.min" }});
+          require.config({ paths: { d3: "https://d3js.org/d3.v3.min" }});
           require(["d3"], function(d3) { window.d3_loaded = true});
-
 
           var style = document.createElement('tree');
           style.innerHTML = '.node { cursor:pointer } .node circle { stroke-width:1.5px } .node text { font:10px sans-serif }' +
@@ -214,9 +236,21 @@ define(function () {
           var ref = document.querySelector('script');
           ref.parentNode.insertBefore(style, ref);
         }
-        window.add_menu_button('Viz', 'vizMenuItem', 'glyphicon-signal',"launchViz()");
-        window.inject_styles(
-              '.viz_display {padding: 20px 0px 0px 40px;}')
+        // Adds menu button that allows for choosing files
+        window.add_menu_button('Viz', 'vizMenuItem', 'glyphicon-signal',"chooseFiles('viz')");
+        window.inject_styles('.viz_display {padding: 20px 0px 0px 40px;}')
+
+        // Register this as a user of the file chooser interface
+        window.register_file_chooser('viz',
+        {
+            showChoice: function() {
+                // Button name, Description
+                window.setup_file_chooser('Go', 'Display Visualization');
+                $('#plannerURLInput').hide();
+            },
+            // Called when go is hit
+            selectChoice: showTree
+        });
         },
 
         disable: function() {
