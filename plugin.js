@@ -182,6 +182,22 @@ function update(source){
 
 // Called when you click 'Go' on the file chooser, we can change this name 
 function showTree() {
+
+  var domain = "(define (domain blocksworld)" +
+	"  (:requirements :strips)" +
+	"  (:action move" +
+	"     :parameters (?b ?t1 ?t2)" +
+	"     :precondition (and (block ?b) (table ?t1) (table ?t2) (on ?b ?t1) (not (on ?b ?t2))" +
+	"     :effect (and (on ?b ?t2)) (not (on ?b ?t1))))" +
+	")";
+
+  var problem = "(define (problem move-blocks-from-a-to-b)" +
+	"    (:domain blocksworld)" +
+	"  (:init (and (block a) (block b) (table x) (table y)" +
+	"         (on a x) (on b x)))" +
+	"  (:goal (and (on a y) (on b y)))" +
+	")";
+
   console.log("Clicked show tree");
   // Getting string versions of the selected files
   var domText = window.ace.edit($('#domainSelection').find(':selected').val()).getSession().getValue();
@@ -192,7 +208,7 @@ function showTree() {
   $('#plannerURLInput').show();
 
   // This parses the problem and domain text, returns from a callback
-  StripsManager.loadFromString(probText, domText, function(p, d) {
+  StripsManager.loadFromString(problem, domain, function(p, d) {
     // p = Problem
     // d = Domain
     console.log(p);
