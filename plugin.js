@@ -1,47 +1,8 @@
-// Temp tree data 
-var treeData = [
-  {
-    "name": "Top Level",
-    "parent": "null",
-    "value": 5,
-    "type": "black",
-    "level": "blue",
-    "children": [
-      {
-        "name": "Level 2: A",
-        "parent": "Top Level",
-        "value": 5,
-        "type": "grey",
-        "level": "blue",
-        "children": [
-          {
-            "name": "Son of A",
-            "parent": "Level 2: A",
-            "value": 5,
-            "type": "steelblue",
-            "level": "blue"
-          },
-          {
-            "name": "Daughter of A",
-            "parent": "Level 2: A",
-            "value": 5,
-            "type": "steelblue",
-            "level": "blue"
-          }
-        ]
-      },
-      {
-        "name": "Level 2: B",
-        "parent": "Top Level",
-        "value": 5,
-        "type": "grey",
-        "level": "blue"
-      }
-    ]
-  }
-];
 
-var tree, root, svg, diagonal, treeHeight, stateCounter,i, duration;
+
+var tree, svg, diagonal, treeHeight, stateCounter,i, duration, treeData,
+root, goalState, dom, prob, tooltip;
+
 
 function makeTree(){
   window.toastr.info("Make Tree is Running")
@@ -75,7 +36,16 @@ function makeTree(){
       d.children = null;
     }
   }
-
+  // console.log(root)
+  // var childStates = StripsManager.getChildStates(dom, root);
+  // var actions = StripsManager.applicableActions(dom, prob.states[0]);  // root.children.forEach(collapse);
+  // var childState = StripsManager.applyAction(actions[0], prob.states[0]);
+  //
+  // console.log('Current state');
+  // console.log(StripsManager.stateToString(prob.states[0]));
+  // console.log('Applying action');
+  // console.log(StripsManager.actionToString(actions[0]));
+  // var childState = StripsManager.applyAction(actions[0], prob.states[0]);
   root.children.forEach(collapse);
   console.log(root);
   update(root);
@@ -93,7 +63,15 @@ function update(source){
   var nodeEnter = node.enter().append("g")
 	  .attr("class", "node")
 	  .attr("transform", function(d) { return "translate(" + d.y + "," + d.x + ")"; })
-    .on("click", click);
+    .on("click", click)
+    .on("mouseover", function(d) {
+        tooltip.html(d.name)
+        .style("left", (d3.event.pageX + 20) + "px")
+        .style("top", (d3.event.pageY - 30) + "px")
+        .style("opacity", .95);
+    })
+    // Hide tooltip
+    .on("mouseout", function(d) { tooltip.style("opacity", 0); });
 
   nodeEnter.append("circle")
         .attr("r", 1e-6)
@@ -106,7 +84,7 @@ function update(source){
     	  .attr("dy", ".35em")
     	  .attr("text-anchor", function(d) {
     		  return d.children || d._children ? "end" : "start"; })
-    	  .text(function(d) { return d.name; })
+    	  // .text(function(d) { return d.name; })
     	  .style("fill-opacity", 1e-6);
 
   var nodeUpdate = node.transition().duration(duration)
@@ -138,10 +116,29 @@ function update(source){
   var o = {x: source.x0, y: source.y0};
   link.enter().insert("path", "g")
 	  .attr("class", "link")
-	  .attr("d", function(d) {
-		var o = {x: source.x0, y: source.y0};
-		return diagonal({source: o, target: o});
-	  });
+    .attr("d", diagonal({source: o, target: o}))
+    // Show tooltip
+    .on("mouseover", function(d) {
+        tooltip.html(d.target.action + "<br>" + d.source.name + " &#8658; " + d.target.name)
+        .style("left", (d3.event.pageX + 20) + "px")
+        .style("top", (d3.event.pageY - 30) + "px")
+        .style("opacity", .95);
+    })
+    // Hide tooltip
+    .on("mouseout", function(d) { tooltip.style("opacity", 0); });
+
+	  // .attr("d", function(d) {
+		// var o = {x: source.x0, y: source.y0};
+		// return diagonal({source: o, target: o})
+    // .on("mouseover", function(d) {
+    //     tooltip.html(d.target.action + "<br>" + d.source.name + " &#8658; " + d.target.name)
+    //     .style("left", (d3.event.pageX + 20) + "px")
+    //     .style("top", (d3.event.pageY - 30) + "px")
+    //     .style("opacity", .95);
+    // })
+    // // Hide tooltip
+    // .on("mouseout", function(d) { tooltip.style("opacity", 0); });
+	  // });
 
   // Transition links to their new position.
   link.transition()
@@ -174,14 +171,35 @@ function update(source){
     }
     update(d);
   }
+
+
+
+
+
 /*
 --------------------------------------------------------------------------------
                                 END OF TREE CODE
 --------------------------------------------------------------------------------
 */
 
-// Called when you click 'Go' on the file chooser, we can change this name 
+// Called when you click 'Go' on the file chooser, we can change this name
 function showTree() {
+
+  var domain = "(define (domain blocksworld)" +
+	"  (:requirements :strips)" +
+	"  (:action move" +
+	"     :parameters (?b ?t1 ?t2)" +
+	"     :precondition (and (block ?b) (table ?t1) (table ?t2) (on ?b ?t1) (not (on ?b ?t2))" +
+	"     :effect (and (on ?b ?t2)) (not (on ?b ?t1))))" +
+	")";
+
+  var problem = "(define (problem move-blocks-from-a-to-b)" +
+	"    (:domain blocksworld)" +
+	"  (:init (and (block a) (block b) (table x) (table y)" +
+	"         (on a x) (on b x)))" +
+	"  (:goal (and (on a y) (on b y)))" +
+	")";
+
   console.log("Clicked show tree");
   // Getting string versions of the selected files
   var domText = window.ace.edit($('#domainSelection').find(':selected').val()).getSession().getValue();
@@ -191,12 +209,21 @@ function showTree() {
   $('#chooseFilesModal').modal('toggle');
   $('#plannerURLInput').show();
 
-  // This parses the problem and domain text, returns from a callback
-  StripsManager.loadFromString(probText, domText, function(p, d) {
+  // This parses the problem and domain text, froreturns from a callback
+  StripsManager.loadFromString(domain, problem, function(d, p) {
     // p = Problem
     // d = Domain
-    console.log(p);
-    console.log(d);
+    console.log("problem", p);
+    console.log("domain", d);
+    console.log("childstates", StripsManager.getChildStates(d, p.states[0]));
+    // root = p.states[0];
+    dom = d;
+    prob = p;
+    var graph = StripsManager.graph(d, p);
+    treeData = getTreeData(graph, 0);
+
+
+
 
     // Want to work from here to specify states and such, going to have to figure out
     // how to dynamically update the visuals based on current state and possible next states?
@@ -206,6 +233,77 @@ function showTree() {
   launchViz();
 }
 
+function getTreeData(graph, layerIndex) {
+    // Convert the graph into a d3 tree format, so we can plot the graph.
+    var treeData = [ { name: 'root', parent: 'null' }];
+    var parent = [];
+
+    var i = layerIndex; // layer of graph to print
+    var layer = graph[i];
+    var actionHash = {};
+    var actionHash2 = {};
+
+    for (var j in layer) {
+        var action = layer[j];
+
+        // Format action name: 'cook x y z'.
+        var name = action.action + (action.parameters ? '-' : '');
+        for (var k in action.parameters) {
+            name += action.parameters[k].parameter + ' ';
+        }
+        // Start action node.
+        var node = { name: name, parent: null, children: [] };
+        var p0 = null;
+        var p1 = null;
+
+        // P0
+        for (var k in action.precondition) {
+            var act = action.precondition[k];
+
+            var name = (act.operation || 'and') + '-' + act.action + '-';
+            for (var l in act.parameters) {
+                name += act.parameters[l] + ' ';
+            }
+
+            p0 = actionHash[name];
+            if (!p0) {
+                // New parent node.
+                p0 = { name: name, parent: treeData[0].name, children: [ node ] };
+                parent.push(p0);
+
+                actionHash[name] = p0;
+            }
+            else {
+                // This is a child node of the parent.
+                p0.children.push(node);
+            }
+
+            node.parent = p0.name;
+        }
+
+        // P1
+        for (var k in action.effect) {
+            var act = action.effect[k];
+
+            var name = (act.operation || 'and') + '-' + act.action + '-';
+            for (var l in act.parameters) {
+                name += act.parameters[l] + ' ';
+            }
+
+            p1 = { name: name, parent: node.name, children: [] };
+            node.children.push(p1);
+        }
+    }
+
+    treeData[0].children = parent;
+
+    return treeData;
+}
+
+
+
+
+
 function launchViz(){
   window.new_tab('Viz2.0', function(editor_name){
     $('#' +editor_name).html('<div style = "margin:13px 26px"><h2>Viz</h2>' +
@@ -213,6 +311,16 @@ function launchViz(){
     '<node circle style ="fill:#fff;stroke:black;stroke-width:3px;></node circle>' +
     '<p id="hv-output"></p>');
   });
+
+  svg = d3.select("#svg-container").append("svg")
+  .attr("width","100%")
+  .attr("height", "100%")
+  .attr("preserveAspectRatio", "xMinYMid meet")
+  .attr("display", "block")
+
+  tooltip = d3.select("body").append("div")
+  .attr("class", "tooltip")
+  .style("opacity", 0);
 }
 
 define(function () {
