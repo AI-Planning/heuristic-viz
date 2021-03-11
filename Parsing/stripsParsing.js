@@ -66,7 +66,9 @@ function displayHValuesSTRIPS(state, domain, problem){
         }
 
         console.log("");
-        console.log('Possible action: ' + currentChildHeuristicValue.action);
+        //console.log('Possible action: ' + currentChildHeuristicValue.action);
+        console.log('Possible action:' );
+        console.log(childStates[child].action);
         console.log("");
         console.log('Leads to Child State: ');
         console.log(currentChildStateFluents);
@@ -139,7 +141,7 @@ function runSTRIPSHeuristicAuto(state, domain, problem){
 }
 
 //choose child nodes autmoatically 
-loadFiles('aircargo/domain.txt', 'aircargo/problem.txt',false );
+//loadFiles('aircargo/domain.txt', 'aircargo/problem.txt',false );
 //choose child nodes manually
 loadFiles('aircargo/domain.txt', 'aircargo/problem.txt',true );
 
