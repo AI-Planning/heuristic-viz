@@ -4,20 +4,6 @@ root, goalState, dom, prob, tooltip, treemap, d3;
 
 function makeTree() {
   console.log("Called make tree");
-  var treeData =
-  {
-    "name": "Top Level",
-    "children": [
-      { 
-        "name": "Level 2: A",
-        "children": [
-          { "name": "Son of A", "children":[] },
-          { "name": "Daughter of A" , "children":[]}
-        ]
-      },
-      { "name": "Son of A", "children":[]}
-    ]
-  };
 
   // Set the dimensions and margins of the diagram
   var margin = {top: 20, right: 90, bottom: 30, left: 90},
@@ -41,7 +27,7 @@ function makeTree() {
   treemap = d3.tree().size([height, width]);
 
   // Assigns parent, children, height, depth
-  root = d3.hierarchy(treeData, function(d) { return d.children; });
+  root = d3.hierarchy(treeData[0], function(d) { return d.children; });
   root.x0 = height / 2;
   root.y0 = 0;
 
@@ -50,14 +36,14 @@ function makeTree() {
 
   update(root);
 
+}
 
-  // Collapse the node and all it's children
-  function collapse(d) {
-    if(d.children) {
-      d._children = d.children
-      d._children.forEach(collapse)
-      d.children = null
-    }
+// Collapse the node and all it's children
+function collapse(d) {
+  if(d.children) {
+    d._children = d.children
+    d._children.forEach(collapse)
+    d.children = null
   }
 }
 
@@ -189,67 +175,56 @@ function update(source){
 
   // Toggle children on click.
   function click(d) {
+    console.log("Clicked node :", d);
     if (d.children) {
-        d._children = d.children;
-        d.children = null;
-        update(d);
+      d._children = d.children;
+      d.children = null;
     } else {
-        loadData(d);
-        expandNode(d);
+      d.children = d._children;
+      d._children = null;
     }
-    // loadData(d);
-    // expandNode(d);
-    // if (d.children) {
-    //     d._children = d.children;
-    //     d.children = null;
-    //   } else {
-    //     d.children = d._children;
-    //     d._children = null;
-    //   }
-    // update(d);
+    update(d);
   }
 }
 
-function loadData(node) {
-  // Set nodes children to be found nodes, for our test case
-  // it will just be dummy data
+// These dynamically load child data: Don't need to use it but I'll leave it here for now
 
-  // Would only want to add once, not each time that it was clicked
-  console.log("LoadData node: ", node.data);
+// function loadData(node) {
+//   if(!node.loadedChildren) {
+//     // Node has a 'stripsState' field that contains the corresponding planning state
+//     const data = StripsManager.getChildStates(dom, node.data.stripsState);
 
-  const data = [{"name":"LoadedNode", "children":[]}, {"name":"LoadedNode2", "children":[]}];
+//     data.forEach((s) => {
+//         // Add each item to the node that we want to expands child field
+//         if(node.data.children) {
+//             let generatedChild = {"name":s.state.name, "stripsState": s.state,"children":[]}
+//             node.data.children.push(generatedChild);
+//         }
+//     });
+//     node.loadedChildren = true;
+//   }
+// }
 
-  data.forEach((item) => {
-      // Add each item to the node that we want to expands child field
-      if(node.data.children) {
-          node.data.children.push(item);
-      }
-  });
+// function expandNode(node) {
+//   const allChildren = node.data.children;
+//   const newHierarchyChildren = [];
 
-  console.log("Node after data was inserted: ", node.data);
-}
+//   allChildren.forEach((child) => {
+//       const newNode = d3.hierarchy(child); // create a node
+//       newNode.depth = node.depth + 1; // update depth depends on parent
+//       newNode.height = node.height;
+//       newNode.parent = node; // set parent
+//       newNode.id = String(child.id); // set uniq id
 
-function expandNode(node) {
-  console.log(node.data);
-  const allChildren = node.data.children;
-  const newHierarchyChildren = [];
+//       newHierarchyChildren.push(newNode);
+//   });
 
-  allChildren.forEach((child) => {
-      const newNode = d3.hierarchy(child); // create a node
-      newNode.depth = node.depth + 1; // update depth depends on parent
-      newNode.height = node.height;
-      newNode.parent = node; // set parent
-      newNode.id = String(child.id); // set uniq id
-
-      newHierarchyChildren.push(newNode);
-  });
-
-  // Add to parent's children array and collapse
-  node.children = newHierarchyChildren;
-  node._children = newHierarchyChildren;
-
-  this.update(node);
-}
+//   // Add to parent's children array and collapse
+//   node.children = newHierarchyChildren;
+//   node._children = newHierarchyChildren;
+//   console.log("Updated node: ", node);
+//   this.update(node);
+// }
 
 
 
@@ -262,19 +237,34 @@ function expandNode(node) {
 // Called when you click 'Go' on the file chooser, we can change this name
 function showTree() {
 
+  // Temp vars
   var domain = "(define (domain blocksworld)" +
-	"  (:requirements :strips)" +
+	"  (:requirements :strips :typing)" +
+	"  (:types block table)" +
 	"  (:action move" +
-	"     :parameters (?b ?t1 ?t2)" +
-	"     :precondition (and (block ?b) (table ?t1) (table ?t2) (on ?b ?t1) (not (on ?b ?t2))" +
+	"     :parameters (?b - block ?t1 - table ?t2 - table)" +
+	"     :precondition (and (block ?b) (table ?t1) (table ?t2) (on ?b ?t1) not (on ?b ?t2) (clear ?b))" +
 	"     :effect (and (on ?b ?t2)) (not (on ?b ?t1))))" +
+	"  (:action stack" +
+	"     :parameters (?a - block ?b - block ?t1 - table)" +
+	"     :precondition (and (block ?a) (block ?b) (table ?t1) (clear ?a) (clear ?b) (on ?a ?t1) (on ?b ?t1))" +
+	"     :effect (and (on ?a ?b) not (on ?a ?t1) not (clear ?b))" +
+	"     )" +
+	"  (:action unstack" +
+	"     :parameters (?a - block ?b - block ?t1 - table)" +
+	"     :precondition (and (block ?a) (block ?b) (table ?t1) (on ?b ?t1) (clear ?a) (on ?a ?b))" +
+	"     :effect (and (on ?a ?t1) not (on ?a ?b) (clear ?b))" +
+	"     )" +
 	")";
 
-  var problem = "(define (problem move-blocks-from-a-to-b)" +
-	"    (:domain blocksworld)" +
+  var problem = "(define (problem stack-blocks-a-b-from-tablex-to-ab-tabley)" +
+	"  (:domain blocksworld)" +
+	"  (:objects" +
+	"    a b - block" +
+	"    x y - table)" +
 	"  (:init (and (block a) (block b) (table x) (table y)" +
-	"         (on a x) (on b x)))" +
-	"  (:goal (and (on a y) (on b y)))" +
+	"         (on a x) (on b x) (clear a) (clear b)))" +
+	"  (:goal (and (on a b) (on b y) (clear a) not (clear b)))" +
 	")";
 
   console.log("Clicked show tree");
@@ -288,26 +278,14 @@ function showTree() {
 
   // This parses the problem and domain text, froreturns from a callback
   StripsManager.loadFromString(domain, problem, function(d, p) {
-    // p = Problem
-    // d = Domain
-    console.log("problem", p);
-    console.log("domain", d);
-    console.log("childstates", StripsManager.getChildStates(d, p.states[0]));
-    // root = p.states[0];
     dom = d;
     prob = p;
     var graph = StripsManager.graph(d, p);
+
     treeData = getTreeData(graph, 0);
-
-
-
-
-    // Want to work from here to specify states and such, going to have to figure out
-    // how to dynamically update the visuals based on current state and possible next states?
+    // Calls launchviz which just makes a new tab with a button to make the dummy data tree
+    launchViz();
   });
-
-  // Calls launchviz which just makes a new tab with a button to make the dummy data tree
-  launchViz();
 }
 
 function getTreeData(graph, layerIndex) {
