@@ -7,6 +7,7 @@ function loadFiles(domainFile, problemFile, runManual){
         processDomain(domain);
         processProblem(problem);
         initialState = problem.states[0];
+        
         if(runManual){
             runSTRIPSHeuristic(initialState, domain, problem);
         }
