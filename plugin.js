@@ -1,6 +1,8 @@
 var tree, svg, diagonal, treeHeight, stateCounter,i, duration, treeData,
 root, goalState, dom, prob, tooltip, treemap, d3;
 
+// Used variables
+var stateCounter = 1;
 
 function makeTree() {
   console.log("Called make tree");
@@ -27,15 +29,16 @@ function makeTree() {
   treemap = d3.tree().size([height, width]);
 
   // Assigns parent, children, height, depth
-  root = d3.hierarchy(treeData[0], function(d) { return d.children; });
+  root = d3.hierarchy(treeData, function(d) { return d.children; });
   root.x0 = height / 2;
   root.y0 = 0;
 
   // Collapse after the second level
-  root.children.forEach(collapse);
-
+  if(root.children) {
+    root.children.forEach(collapse);
+  }
+  
   update(root);
-
 }
 
 // Collapse the node and all it's children
@@ -176,55 +179,64 @@ function update(source){
   // Toggle children on click.
   function click(d) {
     console.log("Clicked node :", d);
-    if (d.children) {
-      d._children = d.children;
-      d.children = null;
-    } else {
-      d.children = d._children;
-      d._children = null;
-    }
+
+    // This nodes children:
+    console.log("Nodes children: ", StripsManager.getChildStates(dom, d.data.state));
+
+    loadData(d);
+    expandNode(d);
+
+    // if (d.children) {
+    //   d._children = d.children;
+    //   d.children = null;
+    // } else {
+    //   d.children = d._children;
+    //   d._children = null;
+    // }
     update(d);
   }
 }
 
 // These dynamically load child data: Don't need to use it but I'll leave it here for now
 
-// function loadData(node) {
-//   if(!node.loadedChildren) {
-//     // Node has a 'stripsState' field that contains the corresponding planning state
-//     const data = StripsManager.getChildStates(dom, node.data.stripsState);
+function loadData(node) {
+  if(!node.loadedChildren) {
+    // Node has a 'state' field that contains the corresponding planning state
+    const data = StripsManager.getChildStates(dom, node.data.state);
 
-//     data.forEach((s) => {
-//         // Add each item to the node that we want to expands child field
-//         if(node.data.children) {
-//             let generatedChild = {"name":s.state.name, "stripsState": s.state,"children":[]}
-//             node.data.children.push(generatedChild);
-//         }
-//     });
-//     node.loadedChildren = true;
-//   }
-// }
+    data.forEach((s) => {
+        // Add each item to the node that we want to expands child field
+        if(node.data.children) {
+            const newName = 'State ' + String(stateCounter);
+            let generatedChild = {"name":s.state.name, "state": s.state, "loadedChildren":false, "children":[]}
+            node.data.children.push(generatedChild);
+            stateCounter += 1;
+        }
+    });
+    node.loadedChildren = true;
+  }
+}
 
-// function expandNode(node) {
-//   const allChildren = node.data.children;
-//   const newHierarchyChildren = [];
+function expandNode(node) {
+  const allChildren = node.data.children;
+  const newHierarchyChildren = [];
 
-//   allChildren.forEach((child) => {
-//       const newNode = d3.hierarchy(child); // create a node
-//       newNode.depth = node.depth + 1; // update depth depends on parent
-//       newNode.height = node.height;
-//       newNode.parent = node; // set parent
-//       newNode.id = String(child.id); // set uniq id
+  allChildren.forEach((child) => {
+      const newNode = d3.hierarchy(child); // create a node
+      newNode.depth = node.depth + 1; // update depth depends on parent
+      newNode.height = node.height;
+      newNode.parent = node; // set parent
+      newNode.id = String(child.id); // set uniq id
 
-//       newHierarchyChildren.push(newNode);
-//   });
+      newHierarchyChildren.push(newNode);
+  });
 
-//   // Add to parent's children array and collapse
-//   node.children = newHierarchyChildren;
-//   node._children = newHierarchyChildren;
-//   console.log("Updated node: ", node);
-//   this.update(node);
-// }
+  // Add to parent's children array and collapse
+  node.children = newHierarchyChildren;
+  node._children = newHierarchyChildren;
+  console.log("Updated node: ", node);
+  this.update(node);
+}
 
 
 
@@ -280,9 +292,10 @@ function showTree() {
   StripsManager.loadFromString(domain, problem, function(d, p) {
     dom = d;
     prob = p;
-    var graph = StripsManager.graph(d, p);
+    // var graph = StripsManager.graph(d, p);0
 
-    treeData = getTreeData(graph, 0);
+    // treeData = getTreeData(graph, 0);
+    treeData = {'name':'Root', 'state':p.states[0], 'loadedChildren':false, 'children':[]};
     // Calls launchviz which just makes a new tab with a button to make the dummy data tree
     launchViz();
   });
