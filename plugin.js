@@ -124,7 +124,7 @@ function update(source){
         return "translate(" + source.y0 + "," + source.x0 + ")";
       })
       .on('click', click)
-      .on('dblclick', startHeuristicViz(node));
+      .on('dblclick',dblclick);
       // .on('dblclick',function(e){
       //   window.new_tab('Node', function(editor_name){
       //     $('#' +editor_name).html('<div style = "margin:13px 26px"><h2>Viz</h2>')
@@ -260,6 +260,12 @@ function update(source){
     update(d);
   }
 
+  function dblclick(d){
+    console.log("Double Clicked node: ", d);
+    startHeuristicViz(d);
+
+
+  }
 
 // These dynamically load child data: Don't need to use it but I'll leave it here for now
 
@@ -431,7 +437,7 @@ function getTreeData(graph, layerIndex) {
 
 function startHeuristicViz(node){
     window.new_tab('Node', function(editor_name){
-      $('#' +editor_name).html('<div style = "margin:13px 26px"><h2>Viz</h2>')
+      $('#' +editor_name).html('<div style = "margin:13px 26px"><h2>Node</h2>')
     });
     loadHeuristicData(node);
 }
@@ -455,7 +461,7 @@ function loadHeuristicData(node){
   child = child[1].state
   console.log('Inital State');
   console.log(initialState.actions);
-  var graph2 = makeGraph(dom, prob, child);
+  var graph2 = makeGraph(dom, prob, initialState);
   var heuristic = autoUpdate(graph2);
   console.log('----------------------');
   visual(heuristic, graph2);
@@ -475,18 +481,19 @@ function visual(heuristic, graph){
     .force("charge", d3.forceManyBody())
     .force("center", d3.forceCenter(width / 2, height / 2));
 
-  var link = view.append("g")
-    .attr("class", "link")
-    .selectAll("line")
-    .data(graph.links)
-    .enter().append("line")
-    .attr("stroke-width", function(d) { return Math.sqrt(d.value); });
+
 
   var node = view.append("g")
-    // .attr("class", "nodes")
     .selectAll("g")
-    .data(graph.nodes)
+    .data(graph)
     .enter().append("g")
+
+  // var link = view.append("g")
+  //     .attr("class", "link")
+  //     .selectAll("line")
+  //     .data(graph.links)
+  //     .enter().append("line")
+  //     .attr("stroke-width", function(d) { return Math.sqrt(d.value); });
 
   var circles = node.append("circle")
     .attr("r", 5)
@@ -504,9 +511,9 @@ function visual(heuristic, graph){
 
     node.append("title").text(function(d) { return d.id; });
 
-    simulation.nodes(graph.nodes).on("tick", ticked);
+    // simulation.nodes(graph.nodes).on("tick", ticked);
 
-    simulation.force("link").links(graph.links);
+    // simulation.force("link").links(graph.links);
 
 }
 function ticked() {
