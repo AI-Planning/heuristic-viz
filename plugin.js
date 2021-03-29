@@ -85,8 +85,8 @@ function makeTree() {
         .attr("height", height + margin.top + margin.bottom)
         .append("g")
         .attr("transform", "translate("+ margin.left + "," + margin.top + ")")
-        .call(d3.zoom().scaleExtent([1 / 2, 12])
-        .on("zoom", zoomed))
+        // .call(d3.zoom().scaleExtent([1 / 2, 12])
+        // .on("zoom", zoomed))
         .append("g")
         .attr("transform", "translate("+ (width/2) + "," + margin.top + ")");
 
@@ -853,22 +853,22 @@ function getTreeData(graph, layerIndex) {
 //     .attr("transform", "translate(" + x + "," + y + ")scale(" + t.k + ")")
 //     .on("end", function(){ zoomer.call(zoom.transform, d3.zoomIdentity.translate(x,y).scale(t.k))});
 // }
-
-function zoomed() {
-      svg.attr("transform", d3.event.transform);
-      /*
-      // this is intended to start the zoom at center where the current node is
-      var transform = d3.event.transform,
-          point = transform.invert(center);
-          console.log("point",point, "focus", focus)
-      transform = transform.translate(point[0] - focus[0], point[1] - focus[1]);
-      svg.attr("transform", transform);
-      */
-     }
-
-// Part of nodeEnter:
-// .on('dblclick',function(e){
-      //   window.new_tab('Node', function(editor_name){
+//
+// function zoomed() {
+//       svg.attr("transform", d3.event.transform);
+//       /*
+//       // this is intended to start the zoom at center where the current node is
+//       var transform = d3.event.transform,
+//           point = transform.invert(center);
+//           console.log("point",point, "focus", focus)
+//       transform = transform.translate(point[0] - focus[0], point[1] - focus[1]);
+//       svg.attr("transform", transform);
+//       */
+//      }
+//
+// // Part of nodeEnter:
+// // .on('dblclick',function(e){
+//       //   window.new_tab('Node', function(editor_name){
       //     $('#' +editor_name).html('<div style = "margin:13px 26px"><h2>Viz</h2>')
       //     // '<p id="hv-output"></p>')
       //   })
