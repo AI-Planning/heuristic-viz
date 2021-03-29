@@ -2,7 +2,7 @@
 var tree, svg, diagonal, stateCounter, i, duration, treeData,treeHeight,
 root, goalState, dom, prob, tooltip, treemap, d3, zoom, zoomer, viewerWidth, viewerHeight ;
 
-var height, width, stateCounter;
+var stateCounter;
 
 // Called when you click 'Go' on the file chooser
 function loadStatespace() {
@@ -61,7 +61,7 @@ function launchViz(){
     window.new_tab('Viz2.0', function(editor_name){
       $('#' +editor_name).html('<div style = "margin:13px 26px"><h2>Viz</h2>' +
       '<button onclick="makeTree()" style="float:right;margin-left:16px">Make Tree</button>' +
-      '<svg width="500" height="500" id="statespace">' +
+      '<div id="statespace"></div>' +
       '<node circle style ="fill:#fff;stroke:black;stroke-width:3px;></node circle>' +
       '<p id="hv-output"></p>');
       // '<pre id="svg-container" style="background-color:white;font-family:\'Helvetica Neue\',Helvetica,Arial,sans-serif;width:81vw;height:80vh"></pre>');
@@ -74,11 +74,11 @@ function makeTree() {
     console.log("Called make tree");
 
     // Set the dimensions and margins of the diagram
-    var margin = {top: 20, right: 90, bottom: 30, left: 90};
-    width = 960 - margin.left - margin.right;
+    var margin = {top: 20, right: 90, bottom: 30, left: 90},
+    width = 960 - margin.left - margin.right,
     height = 500 - margin.top - margin.bottom;
 
-    svg = d3.select("#statespace")
+    svg = d3.select("#statespace").append("svg")
         .attr("width", width + margin.right + margin.left)
         .attr("height", height + margin.top + margin.bottom)
         .append("g")
@@ -332,7 +332,7 @@ function diagonal(s, d) {
 
 function startHeuristicViz(node){
     window.new_tab('Node', function(editor_name){
-      $('#' +editor_name).html('<div style = "margin:13px 26px"><h2>Node</h2><svg width="500" height="500" id="heuristic"></svg>')
+      $('#' +editor_name).html('<div style = "margin:13px 26px"><h2>Node</h2><div id="heuristic"></div>');
     });
     console.log("Heuristic node: ", node);
     //Create line element inside SVG
@@ -340,15 +340,61 @@ function startHeuristicViz(node){
     // We select the svg object for each tab based on its ID using d3.select
         // #heuristic: id for the svg object that visualizes heuristic computation
         // #statespace: id for the svg object that visualizes statespace traversal
-    d3.select("#heuristic")
-        .append("line")
-        .attr("x1", 100)
-        .attr("x2", 500)
-        .attr("y1", 50)
-        .attr("y2", 50)
-        .attr("stroke", "black");
 
-    loadHeuristicData(node);
+    // Set the dimensions and margins of the diagram
+    var margin = {top: 20, right: 90, bottom: 30, left: 90},
+    width = 960 - margin.left - margin.right,
+    height = 500 - margin.top - margin.bottom;
+    
+    var svg = d3.select("#heuristic")
+    .append("svg")
+        .attr("width", width + margin.left + margin.right)
+        .attr("height", height + margin.top + margin.bottom)
+    .append("g")
+        .attr("transform","translate(" + margin.left + "," + margin.top + ")");
+
+    d3.json("https://raw.githubusercontent.com/holtzy/D3-graph-gallery/master/DATA/data_network.json", function(data) {
+        // Initialize the links
+        var link = svg
+            .selectAll("line")
+            .data(data.links)
+            .enter()
+            .append("line")
+            .style("stroke", "#aaa")
+        
+        // Initialize the nodes
+        var node = svg
+            .selectAll("circle")
+            .data(data.nodes)
+            .enter()
+            .append("circle")
+            .attr("r", 20)
+            .style("fill", "#69b3a2")
+
+        // Let's list the force we wanna apply on the network
+        var simulation = d3.forceSimulation(data.nodes)                 // Force algorithm is applied to data.nodes
+        .force("link", d3.forceLink()                               // This force provides links between nodes
+                .id(function(d) { return d.id; })                     // This provide  the id of a node
+                .links(data.links)                                    // and this the list of links
+        )
+        .force("charge", d3.forceManyBody().strength(-400))         // This adds repulsion between nodes. Play with the -400 for the repulsion strength
+        .force("center", d3.forceCenter(width / 2, height / 2))     // This force attracts nodes to the center of the svg area
+        .on("end", ticked);
+
+        // This function is run at each iteration of the force algorithm, updating the nodes position.
+        function ticked() {
+        link
+            .attr("x1", function(d) { return d.source.x; })
+            .attr("y1", function(d) { return d.source.y; })
+            .attr("x2", function(d) { return d.target.x; })
+            .attr("y2", function(d) { return d.target.y; });
+
+        node
+            .attr("cx", function (d) { return d.x+6; })
+            .attr("cy", function(d) { return d.y-6; });
+        }
+    });
+    // loadHeuristicData(node);
 }
 
 function loadHeuristicData(node){
@@ -371,7 +417,7 @@ function loadHeuristicData(node){
 //   console.log('Inital State');
 //   console.log(initialState.actions);
   var graph2 = makeGraph(dom, prob, node.data.state);
-  console.log(graph2)
+  console.log("This is the graph from makeGraph: ", graph2);
   var heuristic = autoUpdate(graph2);
   console.log('----------------------');
   visual(heuristic, graph2);
