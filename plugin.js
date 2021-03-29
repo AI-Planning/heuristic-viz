@@ -2,44 +2,7 @@
 var tree, svg, diagonal, stateCounter, i, duration, treeData,treeHeight,
 root, goalState, dom, prob, tooltip, treemap, d3, zoom, zoomer, viewerWidth, viewerHeight ;
 
-var height, width;
-
-// Run when the make tree button is pressed
-// Generates the SVG object, and loads the tree data into a d3 style tree
-function makeTree() {
-    console.log("Called make tree");
-
-    // Set the dimensions and margins of the diagram
-    var margin = {top: 20, right: 90, bottom: 30, left: 90};
-    width = 960 - margin.left - margin.right;
-    height = 500 - margin.top - margin.bottom;
-
-    svg = d3.select("#statespace")
-        .attr("width", width + margin.right + margin.left)
-        .attr("height", height + margin.top + margin.bottom)
-        .append("g")
-        .attr("transform", "translate("+ margin.left + "," + margin.top + ")")
-        // .call(d3.zoom().scaleExtent([1 / 2, 12])
-        // .on("zoom", zoomed))
-        .append("g")
-        .attr("transform", "translate("+ (width/2) + "," + margin.top + ")");
-
-    i = 0;
-    duration = 750;
-
-    // declares a tree layout and assigns the size
-    treemap = d3.tree().size([height, width]);
-
-    // Assigns parent, children, height, depth
-    root = d3.hierarchy(treeData[0], function(d) { return d.children; });
-    root.x0 = height / 2;
-    root.y0 = 0;
-
-    // Collapse after the second level
-    root.children.forEach(collapse);
-
-    update(root);
-}
+var height, width, stateCounter;
 
 // Called when you click 'Go' on the file chooser
 function loadStatespace() {
@@ -85,9 +48,11 @@ function loadStatespace() {
     StripsManager.loadFromString(domain, problem, function(d, p) {
         dom = d;
         prob = p;
-        var graph = StripsManager.graph(d, p);
-        treeHeight = 0;
-        treeData = getTreeData(graph, 0);
+        // var graph = StripsManager.graph(d, p);
+        // treeHeight = 0;
+        // treeData = getTreeData(graph, 0);
+        treeData = {"name":"root", "children":[], "state":p.states[0], "loadedChildren":false};
+        stateCounter = 1;
         launchViz();
     });
 }
@@ -101,25 +66,113 @@ function launchViz(){
       '<p id="hv-output"></p>');
       // '<pre id="svg-container" style="background-color:white;font-family:\'Helvetica Neue\',Helvetica,Arial,sans-serif;width:81vw;height:80vh"></pre>');
     });
-  
-    /*
-
-    I'm not sure what this svg select does: commented it out for now and it still works - Cam
-
-    */
-   
-    // svg = d3.select("#svg-container").append("svg")
-    //     // .attr("width","100%")
-    //     // .attr("height", "100%")
-    //     .attr("width",viewerWidth)
-    //     .attr("height",viewerHeight)
-    //     .attr("preserveAspectRatio", "xMinYMid meet")
-    //     .attr("display", "block")
-  
-    // var svg_container = $("#svg-container");
-    // viewerWidth = svg_container.width();
-    // viewerHeight = svg_container.height();
 }
+
+// Run when the make tree button is pressed
+// Generates the SVG object, and loads the tree data into a d3 style tree
+function makeTree() {
+    console.log("Called make tree");
+
+    // Set the dimensions and margins of the diagram
+    var margin = {top: 20, right: 90, bottom: 30, left: 90};
+    width = 960 - margin.left - margin.right;
+    height = 500 - margin.top - margin.bottom;
+
+    svg = d3.select("#statespace")
+        .attr("width", width + margin.right + margin.left)
+        .attr("height", height + margin.top + margin.bottom)
+        .append("g")
+        .attr("transform", "translate("+ margin.left + "," + margin.top + ")")
+        // .call(d3.zoom().scaleExtent([1 / 2, 12])
+        // .on("zoom", zoomed))
+        .append("g")
+        .attr("transform", "translate("+ (width/2) + "," + margin.top + ")");
+
+    i = 0;
+    duration = 750;
+
+    // declares a tree layout and assigns the size
+    treemap = d3.tree().size([height, width]);
+
+    // Assigns parent, children, height, depth
+    root = d3.hierarchy(treeData, function(d) { return d.children; });
+    root.x0 = height / 2;
+    root.y0 = 0;
+
+    // Collapse after the second level
+    // root.children.forEach(collapse);
+    console.log("ROOT: ", root);
+    loadData(root);
+    expandNode(root);
+
+    update(root);
+}
+
+// These dynamically load child data
+function loadData(node) {
+    if(!node.loadedChildren) {
+      // Node has a 'stripsState' field that contains the corresponding planning state
+      const data = StripsManager.getChildStates(dom, node.data.state);
+  
+      data.forEach((s) => {
+          // Add each item to the node that we want to expands child field
+          if(node.data.children) {
+              const newName = "State " + stateCounter;
+              stateCounter += 1;
+              let generatedChild = {"name":newName, "state": s.state,"children":[]}
+              node.data.children.push(generatedChild);
+          }
+      });
+      node.loadedChildren = true;
+    }
+}
+
+function expandNode(node) {
+    const allChildren = node.data.children;
+    const newHierarchyChildren = [];
+
+    allChildren.forEach((child) => {
+        const newNode = d3.hierarchy(child); // create a node
+        newNode.depth = node.depth + 1; // update depth depends on parent
+        newNode.height = node.height;
+        newNode.parent = node; // set parent
+        newNode.id = String(child.id); // set uniq id
+
+        newHierarchyChildren.push(newNode);
+    });
+
+    // Add to parent's children array and collapse
+    node.children = newHierarchyChildren;
+    node._children = newHierarchyChildren;
+    //   this.update(node);
+}
+
+// Toggle children on click.
+function click(d) {
+    console.log("Clicked node :", d.data.state.actions);
+    // console.log("testing getChildren: ", StripsManager.getChildStates(dom, d.data.state));
+    if(!d.loadedChildren && !d.children) {
+        // Load children, expand 
+        loadData(d);
+        expandNode(d);
+        d.children = d._children;
+        d._children = null;
+    }
+    else if (d.children) {
+        d._children = d.children;
+        d.children = null;
+    } else {
+        d.children = d._children;
+        d._children = null;
+    }
+    update(d);
+}
+  
+  // Double click on node: opens up heuristic visualization
+  function dblclick(d){
+      // console.log("Double Clicked node: ", d);
+      startHeuristicViz(d);
+  }
 
 // Collapses the node and all it's children
 function collapse(d) {
@@ -271,25 +324,6 @@ function diagonal(s, d) {
     return path
 }
 
-// Toggle children on click.
-function click(d) {
-    console.log("Clicked node :", d);
-    if (d.children) {
-        d._children = d.children;
-        d.children = null;
-    } else {
-        d.children = d._children;
-        d._children = null;
-    }
-    update(d);
-}
-
-// Double click on node: opens up heuristic visualization
-function dblclick(d){
-    console.log("Double Clicked node: ", d);
-    startHeuristicViz(d);
-}
-
 /*
 --------------------------------------------------------------------------------
                                 END OF TREE CODE
@@ -300,7 +334,7 @@ function startHeuristicViz(node){
     window.new_tab('Node', function(editor_name){
       $('#' +editor_name).html('<div style = "margin:13px 26px"><h2>Node</h2><svg width="500" height="500" id="heuristic"></svg>')
     });
-
+    console.log("Heuristic node: ", node);
     //Create line element inside SVG
 
     // We select the svg object for each tab based on its ID using d3.select
@@ -314,7 +348,7 @@ function startHeuristicViz(node){
         .attr("y2", 50)
         .attr("stroke", "black");
 
-    loadHeuristicData(node);
+    // loadHeuristicData(node);
 }
 
 function loadHeuristicData(node){
@@ -789,41 +823,21 @@ function getTreeData(graph, layerIndex) {
       //
       // });
 
-// These dynamically load child data: Don't need to use it but I'll leave it here for now
 
-// function loadData(node) {
-//   if(!node.loadedChildren) {
-//     // Node has a 'stripsState' field that contains the corresponding planning state
-//     const data = StripsManager.getChildStates(dom, node.data.stripsState);
+    /*
 
-//     data.forEach((s) => {
-//         // Add each item to the node that we want to expands child field
-//         if(node.data.children) {
-//             let generatedChild = {"name":s.state.name, "stripsState": s.state,"children":[]}
-//             node.data.children.push(generatedChild);
-//         }
-//     });
-//     node.loadedChildren = true;
-//   }
-// }
+    I'm not sure what this svg select does: commented it out for now and it still works - Cam
 
-// function expandNode(node) {
-//   const allChildren = node.data.children;
-//   const newHierarchyChildren = [];
-
-//   allChildren.forEach((child) => {
-//       const newNode = d3.hierarchy(child); // create a node
-//       newNode.depth = node.depth + 1; // update depth depends on parent
-//       newNode.height = node.height;
-//       newNode.parent = node; // set parent
-//       newNode.id = String(child.id); // set uniq id
-
-//       newHierarchyChildren.push(newNode);
-//   });
-
-//   // Add to parent's children array and collapse
-//   node.children = newHierarchyChildren;
-//   node._children = newHierarchyChildren;
-//   console.log("Updated node: ", node);
-//   this.update(node);
-// }
+    */
+   
+    // svg = d3.select("#svg-container").append("svg")
+    //     // .attr("width","100%")
+    //     // .attr("height", "100%")
+    //     .attr("width",viewerWidth)
+    //     .attr("height",viewerHeight)
+    //     .attr("preserveAspectRatio", "xMinYMid meet")
+    //     .attr("display", "block")
+  
+    // var svg_container = $("#svg-container");
+    // viewerWidth = svg_container.width();
+    // viewerHeight = svg_container.height();
