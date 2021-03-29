@@ -348,7 +348,7 @@ function startHeuristicViz(node){
         .attr("y2", 50)
         .attr("stroke", "black");
 
-    // loadHeuristicData(node);
+    loadHeuristicData(node);
 }
 
 function loadHeuristicData(node){
@@ -368,9 +368,10 @@ function loadHeuristicData(node){
   initialState = prob.states[0];
   var child = StripsManager.getChildStates(dom, initialState);
   child = child[1].state
-  console.log('Inital State');
-  console.log(initialState.actions);
-  var graph2 = makeGraph(dom, prob, initialState);
+//   console.log('Inital State');
+//   console.log(initialState.actions);
+  var graph2 = makeGraph(dom, prob, node.data.state);
+  console.log(graph2)
   var heuristic = autoUpdate(graph2);
   console.log('----------------------');
   visual(heuristic, graph2);
@@ -471,7 +472,7 @@ function getAllFluents(domain){
             }
         }
     }
-    console.log(fluents);
+    //console.log(fluents);
     return fluents;
 }
 
@@ -480,13 +481,13 @@ function getAllActions(domain){
     for (action in domain.actions){
         actions.push(domain.actions[action]);
     }
-    console.log(actions);
+    //console.log(actions);
     return actions;
 }
 
-function isFluentInState(fluent, state){
-    for (stateFluent in state.actions){
-        if(JSON.stringify(state.actions[stateFluent]) === JSON.stringify(fluent)){
+function isFluentInState(fluent, fluentSet){
+    for (stateFluent in fluentSet){
+        if(JSON.stringify(fluentSet[stateFluent]) === JSON.stringify(fluent)){
             return true;
         }
     }
@@ -499,7 +500,7 @@ function makeFluentNodes(fluents, state){
     var index = 0
     for (fluent in fluents){
         currentFluent = fluents[fluent];
-        if (isFluentInState(currentFluent, state)){
+        if (isFluentInState(currentFluent, state.actions)){
             newNode = {'type':'fluent', 'object':currentFluent, 'value':0, 'index':index};
             fluentNodeList.push(newNode);
         }
@@ -579,7 +580,7 @@ function getSumOfPreconditions(actionNode, graph){
     var sum = 0;
     for(node in graph){
         currentNode = graph[node];
-        if (currentNode.type = 'fluent'){
+        if (currentNode.type == 'fluent'){
             if(isFluentInState(currentNode.object, actionNode.preconditions)){
                 sum = sum + currentNode.value;
             }
@@ -603,7 +604,7 @@ function getAdders(fluentNode, graph){
 
 function updateValue(graph, currentNode){
     var update = false;
-    if (currentNode.type = 'fluent'){
+    if (currentNode.type == 'fluent'){
         updateVal = getFluentValue(currentNode, graph);
     }
     else{

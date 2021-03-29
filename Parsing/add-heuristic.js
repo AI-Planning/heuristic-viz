@@ -240,7 +240,7 @@ function autoUpdate(graph) {
     }
     goalIndex = graph.length - 1;
     console.log(graph[goalIndex].value)
-    return `graph[goalIndex].value;
+    return graph[goalIndex].value;
 }
 
 
