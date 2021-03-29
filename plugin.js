@@ -437,6 +437,7 @@ function getAllFluents(domain){
             }
         }
     }
+    console.log(fluents);
     return fluents;
 }
 
@@ -445,6 +446,7 @@ function getAllActions(domain){
     for (action in domain.actions){
         actions.push(domain.actions[action]);
     }
+    console.log(actions);
     return actions;
 }
 
@@ -465,11 +467,13 @@ function makeFluentNodes(fluents, state){
         currentFluent = fluents[fluent];
         if (isFluentInState(currentFluent, state)){
             newNode = {'type':'fluent', 'object':currentFluent, 'value':0, 'index':index};
+            fluentNodeList.push(newNode);
         }
         else{
             newNode = {'type':'fluent', 'object':currentFluent, 'value': Number.POSITIVE_INFINITY, 'index':index};
+            fluentNodeList.push(newNode);
         }
-        fluentNodeList.push(newNode);
+        
         index = index + 1
     }
     return fluentNodeList;
@@ -503,7 +507,7 @@ function makeFluentsLowerCase(fluents){
 }
 function makeGoalNode(problem, graph){
     goalState = makeFluentsLowerCase(problem.states[1].actions);
-    newNode = {'action' : 'goal' , 'value':1, 'preconditions': goalState}
+    newNode = {'type' : 'action' , 'object': 'goal','value':1, 'preconditions': goalState, 'effect': null, 'index': graph.length }
     graph.push(newNode);
     return graph;
 
