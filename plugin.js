@@ -1,6 +1,6 @@
 // Global variables
-var tree, svg, diagonal, stateCounter, i, duration, treeData,treeHeight,
-root, goalState, dom, prob, tooltip, treemap, d3, zoom, zoomer, viewerWidth, viewerHeight ;
+var tree, svg, diagonal, stateCounter, i, duration, treeData,treeHeight,goTree = true,
+root, goalState, dom, prob, tooltip, treemap, d3, zoom, zoomer, viewerWidth, viewerHeight,svgCount=1, svgID;
 
 var stateCounter;
 
@@ -64,6 +64,7 @@ function launchViz(){
       '<div id="statespace"></div>' +
       '<node circle style ="fill:#fff;stroke:black;stroke-width:3px;></node circle>' +
       '<p id="hv-output"></p>');
+      console.log(editor_name);
       // '<pre id="svg-container" style="background-color:white;font-family:\'Helvetica Neue\',Helvetica,Arial,sans-serif;width:81vw;height:80vh"></pre>');
     });
 }
@@ -71,6 +72,7 @@ function launchViz(){
 // Run when the make tree button is pressed
 // Generates the SVG object, and loads the tree data into a d3 style tree
 function makeTree() {
+  if (goTree){
     console.log("Called make tree");
 
     // Set the dimensions and margins of the diagram
@@ -83,8 +85,8 @@ function makeTree() {
         .attr("height", height + margin.top + margin.bottom)
         .append("g")
         .attr("transform", "translate("+ margin.left + "," + margin.top + ")")
-        // .call(d3.zoom().scaleExtent([1 / 2, 12])
-        // .on("zoom", zoomed))
+        .call(d3.zoom().scaleExtent([1 / 2, 12])
+        .on("zoom", zoomed))
         .append("g")
         .attr("transform", "translate("+ (width/2) + "," + margin.top + ")");
 
@@ -106,6 +108,9 @@ function makeTree() {
     expandNode(root);
 
     update(root);
+    goTree = false;
+  }
+
 }
 
 // These dynamically load child data
@@ -113,7 +118,7 @@ function loadData(node) {
     if(!node.loadedChildren) {
       // Node has a 'stripsState' field that contains the corresponding planning state
       const data = StripsManager.getChildStates(dom, node.data.state);
-  
+
       data.forEach((s) => {
           // Add each item to the node that we want to expands child field
           if(node.data.children) {
@@ -152,7 +157,7 @@ function click(d) {
     console.log("Clicked node :", d.data.state.actions);
     // console.log("testing getChildren: ", StripsManager.getChildStates(dom, d.data.state));
     if(!d.loadedChildren && !d.children) {
-        // Load children, expand 
+        // Load children, expand
         loadData(d);
         expandNode(d);
         d.children = d._children;
@@ -167,9 +172,9 @@ function click(d) {
     }
     update(d);
 }
-  
+
   // Double click on node: opens up heuristic visualization
-  function dblclick(d){
+function dblclick(d){
       // console.log("Double Clicked node: ", d);
       startHeuristicViz(d);
   }
@@ -217,7 +222,7 @@ function update(source){
       })
       .on('click', click)
       .on('dblclick',dblclick);
-      
+
   // Add Circle for the nodes
   nodeEnter.append('circle')
       .attr('class', 'node')
@@ -332,7 +337,9 @@ function diagonal(s, d) {
 
 function startHeuristicViz(node){
     window.new_tab('Node', function(editor_name){
-      $('#' +editor_name).html('<div style = "margin:13px 26px"><h2>Node</h2><div id="heuristic"></div>');
+      console.log("editor_name: "+ editor_name)
+      $('#' +editor_name).html('<div style = "margin:13px 7px";"background-color: white"><h2>Node</h2><div id="heuristic"></div>');
+      svgID = editor_name;
     });
     console.log("Heuristic node: ", node);
     //Create line element inside SVG
@@ -345,12 +352,15 @@ function startHeuristicViz(node){
     var margin = {top: 20, right: 90, bottom: 30, left: 90},
     width = 960 - margin.left - margin.right,
     height = 500 - margin.top - margin.bottom;
-    
-    var svg = d3.select("#heuristic")
-    .append("svg")
+
+    // svgid = $("heuristic")
+    console.log("id is:" +svgID );
+
+    var svg = d3.select('#' + svgID)
+        .append("svg")
         .attr("width", width + margin.left + margin.right)
         .attr("height", height + margin.top + margin.bottom)
-    .append("g")
+        .append("g")
         .attr("transform","translate(" + margin.left + "," + margin.top + ")");
 
     d3.json("https://raw.githubusercontent.com/holtzy/D3-graph-gallery/master/DATA/data_network.json", function(data) {
@@ -361,7 +371,7 @@ function startHeuristicViz(node){
             .enter()
             .append("line")
             .style("stroke", "#aaa")
-        
+
         // Initialize the nodes
         var node = svg
             .selectAll("circle")
@@ -396,6 +406,7 @@ function startHeuristicViz(node){
     });
     // loadHeuristicData(node);
 }
+
 
 function loadHeuristicData(node){
   console.log('node:',node);
@@ -554,7 +565,7 @@ function makeFluentNodes(fluents, state){
             newNode = {'type':'fluent', 'object':currentFluent, 'value': Number.POSITIVE_INFINITY, 'index':index};
             fluentNodeList.push(newNode);
         }
-        
+
         index = index + 1
     }
     return fluentNodeList;
@@ -591,7 +602,6 @@ function makeGoalNode(problem, graph){
     newNode = {'type' : 'action' , 'object': 'goal','value':1, 'preconditions': goalState, 'effect': null, 'index': graph.length }
     graph.push(newNode);
     return graph;
-
 }
 
 function makeGraph(domain, problem, state){
@@ -844,17 +854,17 @@ function getTreeData(graph, layerIndex) {
 //     .on("end", function(){ zoomer.call(zoom.transform, d3.zoomIdentity.translate(x,y).scale(t.k))});
 // }
 
-// function zoomed() {
-    //   svg.attr("transform", d3.event.transform);
-    //   /*
-    //   // this is intended to start the zoom at center where the current node is
-    //   var transform = d3.event.transform,
-    //       point = transform.invert(center);
-    //       console.log("point",point, "focus", focus)
-    //   transform = transform.translate(point[0] - focus[0], point[1] - focus[1]);
-    //   svg.attr("transform", transform);
-    //   */
-    //  }
+function zoomed() {
+      svg.attr("transform", d3.event.transform);
+      /*
+      // this is intended to start the zoom at center where the current node is
+      var transform = d3.event.transform,
+          point = transform.invert(center);
+          console.log("point",point, "focus", focus)
+      transform = transform.translate(point[0] - focus[0], point[1] - focus[1]);
+      svg.attr("transform", transform);
+      */
+     }
 
 // Part of nodeEnter:
 // .on('dblclick',function(e){
@@ -876,7 +886,7 @@ function getTreeData(graph, layerIndex) {
     I'm not sure what this svg select does: commented it out for now and it still works - Cam
 
     */
-   
+
     // svg = d3.select("#svg-container").append("svg")
     //     // .attr("width","100%")
     //     // .attr("height", "100%")
@@ -884,7 +894,7 @@ function getTreeData(graph, layerIndex) {
     //     .attr("height",viewerHeight)
     //     .attr("preserveAspectRatio", "xMinYMid meet")
     //     .attr("display", "block")
-  
+
     // var svg_container = $("#svg-container");
     // viewerWidth = svg_container.width();
     // viewerHeight = svg_container.height();
