@@ -1,6 +1,7 @@
 // Global variables
 var tree, svg, diagonal, stateCounter, i, duration, treeData,treeHeight,goTree = true,
-root, goalState, dom, prob, tooltip, treemap, d3, zoom, zoomer, viewerWidth, viewerHeight,svgCount=1, svgID;
+root, goalState, dom, prob, tooltip, treemap, d3, zoom, viewerWidth, viewerHeight,svgCount=1, svgID;
+
 
 var stateCounter;
 
@@ -59,15 +60,18 @@ function loadStatespace() {
 
 function launchViz(){
     window.new_tab('Viz2.0', function(editor_name){
-      $('#' +editor_name).html('<div style = "margin:13px 26px"><h2>Viz</h2>' +
-      '<button onclick="makeTree()" style="float:right;margin-left:16px">Make Tree</button>' +
+      $('#' +editor_name).html('<div style = "margin:13px 26px;text-align:center"><h2>Viz</h2>' +
+      '<button onclick="makeTree()" style="float:right;margin-left:16px;margin-right:30px">Make Tree</button>' +
+      '<button onclick="zoomIn()" style="float:right;margin-left:16px" id ="ZoomIn">ZoomIn</button>' +
+      '<button onclick="zoomOut()" style="float:right;margin-left:16px" id ="ZoomOut">ZoomOut</button>' +
       '<div id="statespace"></div>' +
-      '<node circle style ="fill:#fff;stroke:black;stroke-width:3px;></node circle>' +
+      '<node circle style ="fill:black;stroke:black;stroke-width:3px;></node circle>' +
       '<p id="hv-output"></p>');
       console.log(editor_name);
       // '<pre id="svg-container" style="background-color:white;font-family:\'Helvetica Neue\',Helvetica,Arial,sans-serif;width:81vw;height:80vh"></pre>');
     });
 }
+
 
 // Run when the make tree button is pressed
 // Generates the SVG object, and loads the tree data into a d3 style tree
@@ -76,19 +80,27 @@ function makeTree() {
     console.log("Called make tree");
 
     // Set the dimensions and margins of the diagram
-    var margin = {top: 20, right: 90, bottom: 30, left: 90},
-    width = 960 - margin.left - margin.right,
-    height = 500 - margin.top - margin.bottom;
+    var margin = {top: 20, right: 30, bottom: 30, left: 90},
+    width = 1100 - margin.left - margin.right,
+    height = 700 - margin.top - margin.bottom;
+
+
+    zoom = d3.zoom().on('zoom', function() {
+                   svg.attr('transform', d3.event.transform);
+                 })
 
     svg = d3.select("#statespace").append("svg")
         .attr("width", width + margin.right + margin.left)
         .attr("height", height + margin.top + margin.bottom)
+        .style("background-color", "white")
+        .call(zoom)
+        .on("dblclick.zoom", null)
         .append("g")
         .attr("transform", "translate("+ margin.left + "," + margin.top + ")")
-        // .call(d3.zoom().scaleExtent([1 / 2, 12])
-        // .on("zoom", zoomed))
         .append("g")
-        .attr("transform", "translate("+ (width/2) + "," + margin.top + ")");
+        .attr("transform", "translate("+ (width/2) - 30 + "," + margin.top + ")");
+
+
 
     // create a tooltip
     d3.select("#statespace")
@@ -122,9 +134,15 @@ function makeTree() {
     update(root);
     goTree = false;
   }
-
 }
 
+function zoomIn(){
+  zoom.scaleBy(svg.transition().duration(750), 1.3);
+}
+
+function zoomOut(){
+  zoom.scaleBy(svg, 1 / 1.3);
+}
 // These dynamically load child data
 function loadData(node) {
     if(!node.loadedChildren) {
@@ -166,6 +184,10 @@ function expandNode(node) {
 
 // Toggle children on click.
 function click(d) {
+  if (d3.event.defaultPrevented) return;
+
+    console.log("Clicked node :", d.data.state.actions);
+    // console.log("testing getChildren: ", StripsManager.getChildStates(dom, d.data.state));
     if(!d.loadedChildren && !d.children) {
         // Load children, expand
         loadData(d);
@@ -388,7 +410,7 @@ function diagonal(s, d) {
 function startHeuristicViz(node){
     window.new_tab('Node', function(editor_name){
       console.log("editor_name: "+ editor_name)
-      $('#' +editor_name).html('<div style = "margin:13px 7px";"background-color: white"><h2>Node</h2><div id="heuristic"></div>');
+      $('#' +editor_name).html('<div style = "margin:13px 7px;text-align:center"><h2>Heuristic Visualization</h2><div id="heuristic"></div>');
       svgID = editor_name;
     });
     console.log("Heuristic node: ", node);
@@ -399,9 +421,9 @@ function startHeuristicViz(node){
         // #statespace: id for the svg object that visualizes statespace traversal
 
     // Set the dimensions and margins of the diagram
-    var margin = {top: 20, right: 90, bottom: 30, left: 90},
-    width = 960 - margin.left - margin.right,
-    height = 500 - margin.top - margin.bottom;
+    var margin = {top: 20, right: 30, bottom: 30, left: 90},
+    width = 1100 - margin.left - margin.right,
+    height = 700 - margin.top - margin.bottom;
 
     // svgid = $("heuristic")
     console.log("id is:" +svgID );
@@ -410,6 +432,8 @@ function startHeuristicViz(node){
         .append("svg")
         .attr("width", width + margin.left + margin.right)
         .attr("height", height + margin.top + margin.bottom)
+        .style("background-color", "white")
+        .style("margin-left", "30px")
         .append("g")
         .attr("transform","translate(" + margin.left + "," + margin.top + ")");
 
@@ -429,7 +453,8 @@ function startHeuristicViz(node){
             .enter()
             .append("circle")
             .attr("r", 20)
-            .style("fill", "#69b3a2")
+            .style("fill", "green");
+            // .style("fill", "#69b3a2")
 
         // Let's list the force we wanna apply on the network
         var simulation = d3.forceSimulation(data.nodes)                 // Force algorithm is applied to data.nodes
@@ -514,7 +539,8 @@ function visual(heuristic, graph){
 
   var circles = node.append("circle")
     .attr("r", 5)
-    .attr("fill", function(d) { return color(d.group); });
+    .attr("fill", "black")
+    // .attr("fill", function(d) { return color(d.group); });
     // .call(d3.drag();
         // .on("start", dragstarted)
         // .on("drag", dragged)
@@ -752,7 +778,7 @@ define(function () {
     window.d3_loaded = false;
   return {
       name: "Heuristic Viz",
-      author: "Caitlin Aspinall",
+      author: "Caitlin Aspinall, Cam Cunningham & Ellie Sekine",
       email: "16cea5@queensu.com",
       description: "Heuristic Visualization",
 
@@ -904,17 +930,17 @@ function getTreeData(graph, layerIndex) {
 //     .on("end", function(){ zoomer.call(zoom.transform, d3.zoomIdentity.translate(x,y).scale(t.k))});
 // }
 //
-// function zoomed() {
-//       svg.attr("transform", d3.event.transform);
-//       /*
-//       // this is intended to start the zoom at center where the current node is
-//       var transform = d3.event.transform,
-//           point = transform.invert(center);
-//           console.log("point",point, "focus", focus)
-//       transform = transform.translate(point[0] - focus[0], point[1] - focus[1]);
-//       svg.attr("transform", transform);
-//       */
-//      }
+function zoomed() {
+      svg.attr("transform", d3.event.transform);
+      /*
+      // this is intended to start the zoom at center where the current node is
+      var transform = d3.event.transform,
+          point = transform.invert(center);
+          console.log("point",point, "focus", focus)
+      transform = transform.translate(point[0] - focus[0], point[1] - focus[1]);
+      svg.attr("transform", transform);
+      */
+     }
 //
 // // Part of nodeEnter:
 // // .on('dblclick',function(e){
