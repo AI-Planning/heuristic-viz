@@ -437,11 +437,11 @@ function formatGraphData(node) {
     var data = {"nodes":[], "links":[]};
     // Holds the actions
     var actions = [];
-    
+
     // Run through each node in the graph, add to the nodes section of data
     g.forEach(node => {
         data.nodes.push({"id":node.index, "name":hdescription(node)});
-        // If the node is an action node, it also defines the links, so store 
+        // If the node is an action node, it also defines the links, so store
         // it for the second pass
         if(node.type == "action") {
             actions.push(node);
@@ -473,11 +473,37 @@ function startHeuristicViz(node){
     window.new_tab('Node', function(editor_name){
       console.log("editor_name: "+ editor_name)
       $('#' +editor_name).html('<div style = "margin:13px 7px;text-align:center"><h2>Heuristic Visualization</h2><div id="heuristic"></div>');
+      // '<div style="width:200px;height:26px;background:linear-gradient(to right,blue,red);border-radius:4px;float:right">');
       svgID = editor_name;
     });
 
     // Loading heuristic data from the node
     data = formatGraphData(node);
+    var color = d3.scaleSequential().domain([0,data.nodes.length-1]).interpolator(d3.interpolateViridis);;
+    var Tooltip = d3.select(".tooltip");
+
+    // Three function that change the tooltip when user hover / move / leave a cell
+    var mouseover = function(d) {
+        Tooltip
+            .style("opacity", 1)
+        d3.select(this)
+            .style("stroke", "black")
+            .style("opacity", 1)
+    }
+    var mousemove = function(d) {
+        Tooltip
+            // .html(description(d))
+            .style("left", (d3.event.pageX - 200) + "px")
+            .style("top", (d3.event.pageY - 30) + "px")
+            .style("opacity", .95);
+    }
+    var mouseleave = function(d) {
+        Tooltip
+            .style("opacity", 0)
+        d3.select(this)
+            .style("stroke", "none")
+            .style("opacity", 0.8)
+    }
 
     // Set the dimensions and margins of the diagram
     var margin = {top: 20, right: 30, bottom: 30, left: 90},
@@ -508,8 +534,10 @@ function startHeuristicViz(node){
         .enter()
         .append("circle")
         .attr("r", 20)
-        .style("fill", "green");
-        // .style("fill", "#69b3a2")
+        .on("mouseover", mouseover)
+        .on("mousemove", mousemove)
+        .on("mouseleave", mouseleave)
+        .style("fill", function(d) {return color(d.id)});
 
     // Let's list the force we wanna apply on the network
     var simulation = d3.forceSimulation(data.nodes)              // Force algorithm is applied to data.nodes
@@ -523,7 +551,7 @@ function startHeuristicViz(node){
 
     // This function is run at each iteration of the force algorithm, updating the nodes position.
     function ticked() {
-        link    
+        link
             .attr("x1", function(d) { return d.source.x; })
             .attr("y1", function(d) { return d.source.y; })
             .attr("x2", function(d) { return d.target.x; })
@@ -541,10 +569,12 @@ function startHeuristicViz(node){
                                 START OF HEURISTIC CODE
 --------------------------------------------------------------------------------
 */
+
+
+
 function loadHeuristicData(node){
     processDomain(dom);
     processProblem(prob);
-
     var heuristic = autoUpdate(g);
 }
 
@@ -555,7 +585,6 @@ function processDomain(domain) {
 // Func to process parsed problem (JSON object)
 function processProblem(problem) {
     console.log(problem);
-
 }
 
 function solveStuff(domain, problem){
@@ -632,11 +661,11 @@ function makeActionNodes(actions, graph){
         effectIndices = getFluentIndexes(currentAction.effect, graph);
         newNode = {
             'type':'action',
-            'object': currentAction.action, 
-            'value':1, 
-            'preconditions': currentAction.precondition , 
-            'preconditionIndices': preconditionIndices, 
-            'effect': currentAction.effect, 
+            'object': currentAction.action,
+            'value':1,
+            'preconditions': currentAction.precondition ,
+            'preconditionIndices': preconditionIndices,
+            'effect': currentAction.effect,
             'effectIndices': effectIndices,
             'index': index };
         graph.push(newNode);
@@ -654,7 +683,7 @@ function getFluentIndexes(fluentList, graph){
                     indexes.push(graph[node].index);
                 }
             }
-           
+
         }
     }
     return indexes;
@@ -680,12 +709,12 @@ function makeGoalNode(problem, graph){
     goalState = makeFluentsLowerCase(problem.states[1].actions);
     preconditionIndices = getFluentIndexes(goalState, graph);
     newNode = {
-        'type' : 'action' , 
+        'type' : 'action' ,
         'object': 'goal',
-        'value':1, 
-        'preconditions': goalState, 
+        'value':1,
+        'preconditions': goalState,
         'preconditionIndices': preconditionIndices,
-        'effect': null, 
+        'effect': null,
         'index': graph.length }
     graph.push(newNode);
     return graph;
