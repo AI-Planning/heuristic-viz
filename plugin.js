@@ -1,8 +1,9 @@
 // Global variables
-var tree, svg, diagonal, stateCounter, i, duration, treeData,treeHeight,
-root, goalState, dom, prob, tooltip, treemap, d3, zoom, zoomer, viewerWidth, viewerHeight ;
+var tree, svg, diagonal, stateCounter, i, duration, treeData,treeHeight,goTree = true,
+root, goalState, dom, prob, tooltip, treemap, d3, zoom, viewerWidth, viewerHeight,svgCount=1, svgID;
 
-var height, width, stateCounter;
+
+var stateCounter;
 
 // Called when you click 'Go' on the file chooser
 function loadStatespace() {
@@ -59,34 +60,59 @@ function loadStatespace() {
 
 function launchViz(){
     window.new_tab('Viz2.0', function(editor_name){
-      $('#' +editor_name).html('<div style = "margin:13px 26px"><h2>Viz</h2>' +
-      '<button onclick="makeTree()" style="float:right;margin-left:16px">Make Tree</button>' +
-      '<svg width="500" height="500" id="statespace">' +
-      '<node circle style ="fill:#fff;stroke:black;stroke-width:3px;></node circle>' +
+      $('#' +editor_name).html('<div style = "margin:13px 26px;text-align:center"><h2>Viz</h2>' +
+      '<button onclick="makeTree()" style="float:right;margin-left:16px;margin-right:30px">Make Tree</button>' +
+      '<button onclick="zoomIn()" style="float:right;margin-left:16px" id ="ZoomIn">ZoomIn</button>' +
+      '<button onclick="zoomOut()" style="float:right;margin-left:16px" id ="ZoomOut">ZoomOut</button>' +
+      '<div id="statespace"></div>' +
+      '<node circle style ="fill:black;stroke:black;stroke-width:3px;></node circle>' +
       '<p id="hv-output"></p>');
+      console.log(editor_name);
       // '<pre id="svg-container" style="background-color:white;font-family:\'Helvetica Neue\',Helvetica,Arial,sans-serif;width:81vw;height:80vh"></pre>');
     });
 }
 
+
 // Run when the make tree button is pressed
 // Generates the SVG object, and loads the tree data into a d3 style tree
 function makeTree() {
+  if (goTree){
     console.log("Called make tree");
 
     // Set the dimensions and margins of the diagram
-    var margin = {top: 20, right: 90, bottom: 30, left: 90};
-    width = 960 - margin.left - margin.right;
-    height = 500 - margin.top - margin.bottom;
+    var margin = {top: 20, right: 30, bottom: 30, left: 90},
+    width = 1100 - margin.left - margin.right,
+    height = 700 - margin.top - margin.bottom;
 
-    svg = d3.select("#statespace")
+
+    zoom = d3.zoom().on('zoom', function() {
+                   svg.attr('transform', d3.event.transform);
+                 })
+
+    svg = d3.select("#statespace").append("svg")
         .attr("width", width + margin.right + margin.left)
         .attr("height", height + margin.top + margin.bottom)
+        .style("background-color", "white")
+        .call(zoom)
+        .on("dblclick.zoom", null)
         .append("g")
         .attr("transform", "translate("+ margin.left + "," + margin.top + ")")
-        // .call(d3.zoom().scaleExtent([1 / 2, 12])
-        // .on("zoom", zoomed))
         .append("g")
-        .attr("transform", "translate("+ (width/2) + "," + margin.top + ")");
+        .attr("transform", "translate("+ (width/2) - 30 + "," + margin.top + ")");
+
+
+
+    // create a tooltip
+    d3.select("#statespace")
+        .append("div")
+        .style("opacity", 0)
+        .attr("class", "tooltip")
+        .style("background-color", "white")
+        .style("border", "solid")
+        .style("border-width", "2px")
+        .style("border-radius", "5px")
+        .style("padding", "5px")
+
 
     i = 0;
     duration = 750;
@@ -106,14 +132,23 @@ function makeTree() {
     expandNode(root);
 
     update(root);
+    goTree = false;
+  }
 }
 
+function zoomIn(){
+  zoom.scaleBy(svg.transition().duration(750), 1.3);
+}
+
+function zoomOut(){
+  zoom.scaleBy(svg, 1 / 1.3);
+}
 // These dynamically load child data
 function loadData(node) {
     if(!node.loadedChildren) {
       // Node has a 'stripsState' field that contains the corresponding planning state
       const data = StripsManager.getChildStates(dom, node.data.state);
-  
+
       data.forEach((s) => {
           // Add each item to the node that we want to expands child field
           if(node.data.children) {
@@ -149,10 +184,12 @@ function expandNode(node) {
 
 // Toggle children on click.
 function click(d) {
+  if (d3.event.defaultPrevented) return;
+
     console.log("Clicked node :", d.data.state.actions);
     // console.log("testing getChildren: ", StripsManager.getChildStates(dom, d.data.state));
     if(!d.loadedChildren && !d.children) {
-        // Load children, expand 
+        // Load children, expand
         loadData(d);
         expandNode(d);
         d.children = d._children;
@@ -167,12 +204,11 @@ function click(d) {
     }
     update(d);
 }
-  
-  // Double click on node: opens up heuristic visualization
-  function dblclick(d){
-      // console.log("Double Clicked node: ", d);
-      startHeuristicViz(d);
-  }
+
+// Double click on node: opens up heuristic visualization
+function dblclick(d){
+    startHeuristicViz(d);
+}
 
 // Collapses the node and all it's children
 function collapse(d) {
@@ -183,136 +219,177 @@ function collapse(d) {
   }
 }
 
+// Uncompress state information to a string description
+function description(state) {
+    const actions = state.data.state.actions;
+    var descr = "<strong>" + state.data.name + "</strong><br>";
+    for (let i = 0; i < actions.length; i++) {
+        descr += actions[i].action + " ";
+        actions[i].parameters.forEach(param => {
+            descr += param + " ";
+        });
+        descr += "<br>";
+    }
+    return descr;
+}
+
 function update(source){
-  //Assigns the x and y position for the nodes
-  var treeData = treemap(root);
-  // Compute the new tree layout.
-  var nodes = treeData.descendants(),
-      links = treeData.descendants().slice(1);
+    //Assigns the x and y position for the nodes
+    var treeData = treemap(root);
+    // Compute the new tree layout.
+    var nodes = treeData.descendants(),
+        links = treeData.descendants().slice(1);
 
-  // Normalize for fixed-depth.
-  // nodes.forEach(function(d){ d.y = d.depth * 180});
-  nodes.forEach(function(d) {
-      if (d.depth > treeHeight)
-      treeHeight = d.depth;
-      d.y = d.depth * 130;
-      if (d.data.name === "goal state") {
-          while (d !== root) {
-              d.path = true;
-              d = d.parent;
-          }
-      }
-  });
-  // ****************** Nodes section ***************************
+    // Normalize for fixed-depth.
+    // nodes.forEach(function(d){ d.y = d.depth * 180});
+    nodes.forEach(function(d) {
+        if (d.depth > treeHeight)
+        treeHeight = d.depth;
+        d.y = d.depth * 130;
+        if (d.data.name === "goal state") {
+            while (d !== root) {
+                d.path = true;
+                d = d.parent;
+            }
+        }
+    });
+    // ****************** Nodes section ***************************
+    var Tooltip = d3.select(".tooltip");
 
-  // Update the nodes...
-  var node = svg.selectAll('g.node')
-      .data(nodes, function(d) {return d.id || (d.id = ++i); });
+    // Three function that change the tooltip when user hover / move / leave a cell
+    var mouseover = function(d) {
+        Tooltip
+            .style("opacity", 1)
+        d3.select(this)
+            .style("stroke", "black")
+            .style("opacity", 1)
+    }
+    var mousemove = function(d) {
+        Tooltip
+            .html(description(d))
+            .style("left", (d3.event.pageX - 200) + "px")
+            .style("top", (d3.event.pageY - 30) + "px")
+            .style("opacity", .95);
+    }
+    var mouseleave = function(d) {
+        Tooltip
+            .style("opacity", 0)
+        d3.select(this)
+            .style("stroke", "none")
+            .style("opacity", 0.8)
+    }
 
-  // Enter any new modes at the parent's previous position.
-  var nodeEnter = node.enter().append('g')
-      .attr('class', 'node')
-      .attr("transform", function(d) {
-        return "translate(" + source.y0 + "," + source.x0 + ")";
-      })
-      .on('click', click)
-      .on('dblclick',dblclick);
-      
-  // Add Circle for the nodes
-  nodeEnter.append('circle')
-      .attr('class', 'node')
-      .attr('r', 1e-6)
-      .style("fill", function(d) {
-          return d._children ? "lightsteelblue" : "#fff";
-      });
+    // Update the nodes...
+    var node = svg.selectAll('g.node')
+        .data(nodes, function(d) {return d.id || (d.id = ++i); })
 
-  // Add labels for the nodes
-  nodeEnter.append('text')
-      .attr("dy", ".35em")
-      .attr("x", function(d) {
-          return d.children || d._children ? -13 : 13;
-      })
-      .attr("text-anchor", function(d) {
-          return d.children || d._children ? "end" : "start";
-      })
-      .text(function(d) { return d.data.name; });
+    // Enter any new modes at the parent's previous position.
+    var nodeEnter = node.enter().append('g')
+        .attr('class', 'node')
+        .attr("transform", function(d) {
+            return "translate(" + source.y0 + "," + source.x0 + ")";
+        })
+        .on('click', click)
+        .on('dblclick',dblclick)
+        .on("mouseover", mouseover)
+        .on("mousemove", mousemove)
+        .on("mouseleave", mouseleave);
 
-  // UPDATE
-  var nodeUpdate = nodeEnter.merge(node);
+    // Add Circle for the nodes
+    nodeEnter.append('circle')
+        .attr('class', 'node')
+        .attr('r', 1e-6)
+        .style("fill", function(d) {
+            return d._children ? "#000080" : "lightsteelblue";
+        });
 
-  // Transition to the proper position for the node
-  nodeUpdate.transition()
-    .duration(duration)
-    .attr("transform", function(d) {
-        return "translate(" + d.y + "," + d.x + ")";
-     });
+    // Add labels for the nodes
+    nodeEnter.append('text')
+        .attr("dy", ".35em")
+        .attr("x", function(d) {
+            return d.children || d._children ? -13 : 13;
+        })
+        .attr("text-anchor", function(d) {
+            return d.children || d._children ? "end" : "start";
+        })
+        .text(function(d) { return d.data.name; });
 
-  // Update the node attributes and style
-  nodeUpdate.select('circle.node')
-    .attr('r', 10)
-    .style("fill", function(d) {
-        return d._children ? "lightsteelblue" : "#fff";
-    })
-    .attr('cursor', 'pointer');
+    // UPDATE
+    var nodeUpdate = nodeEnter.merge(node);
+
+    // Transition to the proper position for the node
+    nodeUpdate.transition()
+        .duration(duration)
+        .attr("transform", function(d) {
+            return "translate(" + d.y + "," + d.x + ")";
+        });
+
+    // Update the node attributes and style
+    nodeUpdate.select('circle.node')
+        .attr('r', 10)
+        .style("fill", function(d) {
+            return d._children ? "#000080" : "lightsteelblue";;
+        })
+        .attr('cursor', 'pointer');
 
 
-  // Remove any exiting nodes
-  var nodeExit = node.exit().transition()
-      .duration(duration)
-      .attr("transform", function(d) {
-          return "translate(" + source.y + "," + source.x + ")";
-      })
-      .remove();
+    // Remove any exiting nodes
+    var nodeExit = node.exit().transition()
+        .duration(duration)
+        .attr("transform", function(d) {
+            return "translate(" + source.y + "," + source.x + ")";
+        })
+        .remove();
 
-  // On exit reduce the node circles size to 0
-  nodeExit.select('circle')
-    .attr('r', 1e-6);
+    // On exit reduce the node circles size to 0
+    nodeExit.select('circle')
+        .attr('r', 1e-6);
 
-  // On exit reduce the opacity of text labels
-  nodeExit.select('text')
-    .style('fill-opacity', 1e-6);
+    // On exit reduce the opacity of text labels
+    nodeExit.select('text')
+        .style('fill-opacity', 1e-6);
 
-  // ****************** links section ***************************
+    // ****************** links section ***************************
 
-  // Update the links...
-  var link = svg.selectAll('path.link')
-      .data(links, function(d) { return d.id; });
+    // Update the links...
+    var link = svg.selectAll('path.link')
+        .data(links, function(d) { return d.id; });
 
-  // Enter any new links at the parent's previous position.
-  var linkEnter = link.enter().insert('path', "g")
-      .attr("class", "link")
-      .attr('d', function(d){
-        var o = {x: source.x0, y: source.y0}
-        return diagonal(o, o)})
-      .style("fill", "none")
-      .style("stroke", "#ccc")
-      .style("stroke-width", "2px");
-      // .style("stroke", function(d){return d.target.color})
-      // .style("stroke-width", function(d) { return d.target.path ? 5 : 1.5 });
+    // Enter any new links at the parent's previous position.
+    var linkEnter = link.enter().insert('path', "g")
+        .attr("class", "link")
+        .attr('d', function(d){
+            var o = {x: source.x0, y: source.y0}
+            return diagonal(o, o)})
+        .style("fill", "none")
+        .style("stroke", "#ccc")
+        .style("stroke-width", "2px");
+        // .style("stroke", function(d){return d.target.color})
+        // .style("stroke-width", function(d) { return d.target.path ? 5 : 1.5 });
 
-  // UPDATE
-  var linkUpdate = linkEnter.merge(link);
+    // UPDATE
+    var linkUpdate = linkEnter.merge(link);
 
-  // Transition back to the parent element position
-  linkUpdate.transition()
-      .duration(duration)
-      .attr('d', function(d){ return diagonal(d, d.parent) });
+    // Transition back to the parent element position
+    linkUpdate.transition()
+        .duration(duration)
+        .attr('d', function(d){ return diagonal(d, d.parent) });
 
-  // Remove any exiting links
-  var linkExit = link.exit().transition()
-      .duration(duration)
-      .attr('d', function(d) {
-        var o = {x: source.x, y: source.y}
-        return diagonal(o, o)
-      })
-      .remove();
+    // Remove any exiting links
+    var linkExit = link.exit().transition()
+        .duration(duration)
+        .attr('d', function(d) {
+            var o = {x: source.x, y: source.y}
+            return diagonal(o, o)
+        })
+        .remove();
 
-  // Store the old positions for transition.
-  nodes.forEach(function(d){
-    d.x0 = d.x;
-    d.y0 = d.y;
-  });
-  // centreNode(source);
+    // Store the old positions for transition.
+    nodes.forEach(function(d){
+        d.x0 = d.x;
+        d.y0 = d.y;
+    });
+    // centreNode(source);
 }
 
 // Creates a curved (diagonal) path from parent to the child nodes
@@ -332,7 +409,9 @@ function diagonal(s, d) {
 
 function startHeuristicViz(node){
     window.new_tab('Node', function(editor_name){
-      $('#' +editor_name).html('<div style = "margin:13px 26px"><h2>Node</h2><svg width="500" height="500" id="heuristic"></svg>')
+      console.log("editor_name: "+ editor_name)
+      $('#' +editor_name).html('<div style = "margin:13px 7px;text-align:center"><h2>Heuristic Visualization</h2><div id="heuristic"></div>');
+      svgID = editor_name;
     });
     console.log("Heuristic node: ", node);
     //Create line element inside SVG
@@ -340,16 +419,69 @@ function startHeuristicViz(node){
     // We select the svg object for each tab based on its ID using d3.select
         // #heuristic: id for the svg object that visualizes heuristic computation
         // #statespace: id for the svg object that visualizes statespace traversal
-    d3.select("#heuristic")
-        .append("line")
-        .attr("x1", 100)
-        .attr("x2", 500)
-        .attr("y1", 50)
-        .attr("y2", 50)
-        .attr("stroke", "black");
 
-    loadHeuristicData(node);
+    // Set the dimensions and margins of the diagram
+    var margin = {top: 20, right: 30, bottom: 30, left: 90},
+    width = 1100 - margin.left - margin.right,
+    height = 700 - margin.top - margin.bottom;
+
+    // svgid = $("heuristic")
+    console.log("id is:" +svgID );
+
+    var svg = d3.select('#' + svgID)
+        .append("svg")
+        .attr("width", width + margin.left + margin.right)
+        .attr("height", height + margin.top + margin.bottom)
+        .style("background-color", "white")
+        .style("margin-left", "30px")
+        .append("g")
+        .attr("transform","translate(" + margin.left + "," + margin.top + ")");
+
+    d3.json("https://raw.githubusercontent.com/holtzy/D3-graph-gallery/master/DATA/data_network.json", function(data) {
+        // Initialize the links
+        var link = svg
+            .selectAll("line")
+            .data(data.links)
+            .enter()
+            .append("line")
+            .style("stroke", "#aaa")
+
+        // Initialize the nodes
+        var node = svg
+            .selectAll("circle")
+            .data(data.nodes)
+            .enter()
+            .append("circle")
+            .attr("r", 20)
+            .style("fill", "green");
+            // .style("fill", "#69b3a2")
+
+        // Let's list the force we wanna apply on the network
+        var simulation = d3.forceSimulation(data.nodes)                 // Force algorithm is applied to data.nodes
+        .force("link", d3.forceLink()                               // This force provides links between nodes
+                .id(function(d) { return d.id; })                     // This provide  the id of a node
+                .links(data.links)                                    // and this the list of links
+        )
+        .force("charge", d3.forceManyBody().strength(-400))         // This adds repulsion between nodes. Play with the -400 for the repulsion strength
+        .force("center", d3.forceCenter(width / 2, height / 2))     // This force attracts nodes to the center of the svg area
+        .on("end", ticked);
+
+        // This function is run at each iteration of the force algorithm, updating the nodes position.
+        function ticked() {
+        link
+            .attr("x1", function(d) { return d.source.x; })
+            .attr("y1", function(d) { return d.source.y; })
+            .attr("x2", function(d) { return d.target.x; })
+            .attr("y2", function(d) { return d.target.y; });
+
+        node
+            .attr("cx", function (d) { return d.x+6; })
+            .attr("cy", function(d) { return d.y-6; });
+        }
+    });
+    // loadHeuristicData(node);
 }
+
 
 function loadHeuristicData(node){
   console.log('node:',node);
@@ -371,7 +503,7 @@ function loadHeuristicData(node){
 //   console.log('Inital State');
 //   console.log(initialState.actions);
   var graph2 = makeGraph(dom, prob, node.data.state);
-  console.log(graph2)
+  console.log("This is the graph from makeGraph: ", graph2);
   var heuristic = autoUpdate(graph2);
   console.log('----------------------');
   visual(heuristic, graph2);
@@ -407,7 +539,8 @@ function visual(heuristic, graph){
 
   var circles = node.append("circle")
     .attr("r", 5)
-    .attr("fill", function(d) { return color(d.group); });
+    .attr("fill", "black")
+    // .attr("fill", function(d) { return color(d.group); });
     // .call(d3.drag();
         // .on("start", dragstarted)
         // .on("drag", dragged)
@@ -508,7 +641,7 @@ function makeFluentNodes(fluents, state){
             newNode = {'type':'fluent', 'object':currentFluent, 'value': Number.POSITIVE_INFINITY, 'index':index};
             fluentNodeList.push(newNode);
         }
-        
+
         index = index + 1
     }
     return fluentNodeList;
@@ -580,7 +713,6 @@ function makeGoalNode(problem, graph){
         'index': graph.length }
     graph.push(newNode);
     return graph;
-
 }
 
 function makeGraph(domain, problem, state){
@@ -613,14 +745,6 @@ function getFluentValue(node, graph){
 
 function getSumOfPreconditions(actionNode, graph){
     var sum = 0;
-    // for(node in graph){
-    //     currentNode = graph[node];
-    //     if (currentNode.type == 'fluent'){
-    //         if(isFluentInState(currentNode.object, actionNode.preconditions)){
-    //             sum = sum + currentNode.value;
-    //         }
-    //     }
-    // }
     for (index in actionNode.preconditionIndices){
         currentIndex = actionNode.preconditionIndices[index];
         sum = sum + graph[currentIndex].value;
@@ -630,14 +754,6 @@ function getSumOfPreconditions(actionNode, graph){
 
 function getAdders(fluentNode, graph){
     adders = [];
-    // for (node in graph){
-    //     currentNode = graph[node];
-    //     if (currentNode.type == 'action'){
-    //         if(isFluentInState(fluentNode, currentNode.effect)){
-    //             adders.push(currentNode);
-    //         }
-    //     }
-    // }
     for (index in fluentNode.effectIndexIndiceses){
         currentIndex = fluentNode.effectIndices[index];
         adders.push(graph[currentIndex]);
@@ -689,7 +805,7 @@ define(function () {
     window.d3_loaded = false;
   return {
       name: "Heuristic Viz",
-      author: "Caitlin Aspinall",
+      author: "Caitlin Aspinall, Cam Cunningham & Ellie Sekine",
       email: "16cea5@queensu.com",
       description: "Heuristic Visualization",
 
@@ -840,22 +956,22 @@ function getTreeData(graph, layerIndex) {
 //     .attr("transform", "translate(" + x + "," + y + ")scale(" + t.k + ")")
 //     .on("end", function(){ zoomer.call(zoom.transform, d3.zoomIdentity.translate(x,y).scale(t.k))});
 // }
-
-// function zoomed() {
-    //   svg.attr("transform", d3.event.transform);
-    //   /*
-    //   // this is intended to start the zoom at center where the current node is
-    //   var transform = d3.event.transform,
-    //       point = transform.invert(center);
-    //       console.log("point",point, "focus", focus)
-    //   transform = transform.translate(point[0] - focus[0], point[1] - focus[1]);
-    //   svg.attr("transform", transform);
-    //   */
-    //  }
-
-// Part of nodeEnter:
-// .on('dblclick',function(e){
-      //   window.new_tab('Node', function(editor_name){
+//
+function zoomed() {
+      svg.attr("transform", d3.event.transform);
+      /*
+      // this is intended to start the zoom at center where the current node is
+      var transform = d3.event.transform,
+          point = transform.invert(center);
+          console.log("point",point, "focus", focus)
+      transform = transform.translate(point[0] - focus[0], point[1] - focus[1]);
+      svg.attr("transform", transform);
+      */
+     }
+//
+// // Part of nodeEnter:
+// // .on('dblclick',function(e){
+//       //   window.new_tab('Node', function(editor_name){
       //     $('#' +editor_name).html('<div style = "margin:13px 26px"><h2>Viz</h2>')
       //     // '<p id="hv-output"></p>')
       //   })
@@ -873,7 +989,7 @@ function getTreeData(graph, layerIndex) {
     I'm not sure what this svg select does: commented it out for now and it still works - Cam
 
     */
-   
+
     // svg = d3.select("#svg-container").append("svg")
     //     // .attr("width","100%")
     //     // .attr("height", "100%")
@@ -881,7 +997,7 @@ function getTreeData(graph, layerIndex) {
     //     .attr("height",viewerHeight)
     //     .attr("preserveAspectRatio", "xMinYMid meet")
     //     .attr("display", "block")
-  
+
     // var svg_container = $("#svg-container");
     // viewerWidth = svg_container.width();
     // viewerHeight = svg_container.height();
