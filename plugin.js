@@ -519,6 +519,21 @@ function startHeuristicViz(node){
         .append("g")
         .attr("transform","translate(" + margin.left + "," + margin.top + ")");
 
+   var defs = svg.append('svg:defs')
+
+    svg.append('defs').append('marker')
+       .attr('id','arrowhead')
+       .attr('viewBox','-0 -5 10 10')
+       .attr('refX',13)
+       .attr('refY',0,)
+       .attr('orient','auto')
+       .attr('markerWidth',13)
+       .attr('markerHeight',13)
+       .append('svg:path')
+       .attr('d', 'M 0,-5 L 10 ,0 L 0,5')
+       .attr('fill', '#999')
+       .style('stroke','none');
+
     // Initialize the links
     var link = svg
         .selectAll("line")
@@ -526,6 +541,7 @@ function startHeuristicViz(node){
         .enter()
         .append("line")
         .style("stroke", "#aaa")
+        .attr('marker-end','url(#arrowhead)');
 
     // Initialize the nodes
     var node = svg
@@ -533,7 +549,7 @@ function startHeuristicViz(node){
         .data(data.nodes)
         .enter()
         .append("circle")
-        .attr("r", 20)
+        .attr("r", 15)
         .on("mouseover", mouseover)
         .on("mousemove", mousemove)
         .on("mouseleave", mouseleave)
