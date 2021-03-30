@@ -519,12 +519,39 @@ function makeActionNodes(actions, graph){
     index = graph.length;
     for (action in actions){
         currentAction = actions[action];
-        newNode = {'type':'action','object': currentAction.action, 'value':1, 'preconditions': currentAction.precondition , 'effect': currentAction.effect, 'index': index };
+        preconditionIndices = getFluentIndexes(currentAction.precondition, graph);
+        effectIndices = getFluentIndexes(currentAction.effect, graph);
+        newNode = {
+            'type':'action',
+            'object': currentAction.action, 
+            'value':1, 
+            'preconditions': currentAction.precondition , 
+            'preconditionIndices': preconditionIndices, 
+            'effect': currentAction.effect, 
+            'effectIndices': effectIndices,
+            'index': index };
         graph.push(newNode);
         index = index + 1;
     }
     return graph;
 }
+function getFluentIndexes(fluentList, graph){
+    var indexes = [];
+    for (fluent in fluentList){
+        currentFluent = fluentList[fluent]
+        for (node in graph){
+            if (graph[node].type == 'fluent'){
+                if (areFluentsEqual(graph[node].object,currentFluent)){
+                    indexes.push(graph[node].index);
+                }
+            }
+           
+        }
+    }
+    return indexes;
+
+}
+
 function areFluentsEqual(fluent1, fluent2){
     if(JSON.stringify(fluent1) == JSON.stringify(fluent2)){
         return true;
@@ -542,7 +569,15 @@ function makeFluentsLowerCase(fluents){
 }
 function makeGoalNode(problem, graph){
     goalState = makeFluentsLowerCase(problem.states[1].actions);
-    newNode = {'type' : 'action' , 'object': 'goal','value':1, 'preconditions': goalState, 'effect': null, 'index': graph.length }
+    preconditionIndices = getFluentIndexes(goalState, graph);
+    newNode = {
+        'type' : 'action' , 
+        'object': 'goal',
+        'value':1, 
+        'preconditions': goalState, 
+        'preconditionIndices': preconditionIndices,
+        'effect': null, 
+        'index': graph.length }
     graph.push(newNode);
     return graph;
 
@@ -578,26 +613,34 @@ function getFluentValue(node, graph){
 
 function getSumOfPreconditions(actionNode, graph){
     var sum = 0;
-    for(node in graph){
-        currentNode = graph[node];
-        if (currentNode.type == 'fluent'){
-            if(isFluentInState(currentNode.object, actionNode.preconditions)){
-                sum = sum + currentNode.value;
-            }
-        }
+    // for(node in graph){
+    //     currentNode = graph[node];
+    //     if (currentNode.type == 'fluent'){
+    //         if(isFluentInState(currentNode.object, actionNode.preconditions)){
+    //             sum = sum + currentNode.value;
+    //         }
+    //     }
+    // }
+    for (index in actionNode.preconditionIndices){
+        currentIndex = actionNode.preconditionIndices[index];
+        sum = sum + graph[currentIndex].value;
     }
     return sum;
 }
 
 function getAdders(fluentNode, graph){
     adders = [];
-    for (node in graph){
-        currentNode = graph[node];
-        if (currentNode.type == 'action'){
-            if(isFluentInState(fluentNode, currentNode.effect)){
-                adders.push(currentNode);
-            }
-        }
+    // for (node in graph){
+    //     currentNode = graph[node];
+    //     if (currentNode.type == 'action'){
+    //         if(isFluentInState(fluentNode, currentNode.effect)){
+    //             adders.push(currentNode);
+    //         }
+    //     }
+    // }
+    for (index in fluentNode.effectIndexIndiceses){
+        currentIndex = fluentNode.effectIndices[index];
+        adders.push(graph[currentIndex]);
     }
     return adders;
 }
