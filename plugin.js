@@ -90,6 +90,18 @@ function makeTree() {
         .append("g")
         .attr("transform", "translate("+ (width/2) + "," + margin.top + ")");
 
+    // create a tooltip
+    d3.select("#statespace")
+        .append("div")
+        .style("opacity", 0)
+        .attr("class", "tooltip")
+        .style("background-color", "white")
+        .style("border", "solid")
+        .style("border-width", "2px")
+        .style("border-radius", "5px")
+        .style("padding", "5px")
+
+
     i = 0;
     duration = 750;
 
@@ -154,8 +166,6 @@ function expandNode(node) {
 
 // Toggle children on click.
 function click(d) {
-    console.log("Clicked node :", d.data.state.actions);
-    // console.log("testing getChildren: ", StripsManager.getChildStates(dom, d.data.state));
     if(!d.loadedChildren && !d.children) {
         // Load children, expand
         loadData(d);
@@ -173,11 +183,10 @@ function click(d) {
     update(d);
 }
 
-  // Double click on node: opens up heuristic visualization
+// Double click on node: opens up heuristic visualization
 function dblclick(d){
-      // console.log("Double Clicked node: ", d);
-      startHeuristicViz(d);
-  }
+    startHeuristicViz(d);
+}
 
 // Collapses the node and all it's children
 function collapse(d) {
@@ -188,136 +197,177 @@ function collapse(d) {
   }
 }
 
+// Uncompress state information to a string description
+function description(state) {
+    const actions = state.data.state.actions;
+    var descr = "<strong>" + state.data.name + "</strong><br>";
+    for (let i = 0; i < actions.length; i++) {
+        descr += actions[i].action + " ";
+        actions[i].parameters.forEach(param => {
+            descr += param + " ";
+        });
+        descr += "<br>";
+    }
+    return descr;
+}
+
 function update(source){
-  //Assigns the x and y position for the nodes
-  var treeData = treemap(root);
-  // Compute the new tree layout.
-  var nodes = treeData.descendants(),
-      links = treeData.descendants().slice(1);
+    //Assigns the x and y position for the nodes
+    var treeData = treemap(root);
+    // Compute the new tree layout.
+    var nodes = treeData.descendants(),
+        links = treeData.descendants().slice(1);
 
-  // Normalize for fixed-depth.
-  // nodes.forEach(function(d){ d.y = d.depth * 180});
-  nodes.forEach(function(d) {
-      if (d.depth > treeHeight)
-      treeHeight = d.depth;
-      d.y = d.depth * 130;
-      if (d.data.name === "goal state") {
-          while (d !== root) {
-              d.path = true;
-              d = d.parent;
-          }
-      }
-  });
-  // ****************** Nodes section ***************************
+    // Normalize for fixed-depth.
+    // nodes.forEach(function(d){ d.y = d.depth * 180});
+    nodes.forEach(function(d) {
+        if (d.depth > treeHeight)
+        treeHeight = d.depth;
+        d.y = d.depth * 130;
+        if (d.data.name === "goal state") {
+            while (d !== root) {
+                d.path = true;
+                d = d.parent;
+            }
+        }
+    });
+    // ****************** Nodes section ***************************
+    var Tooltip = d3.select(".tooltip");
 
-  // Update the nodes...
-  var node = svg.selectAll('g.node')
-      .data(nodes, function(d) {return d.id || (d.id = ++i); });
+    // Three function that change the tooltip when user hover / move / leave a cell
+    var mouseover = function(d) {
+        Tooltip
+            .style("opacity", 1)
+        d3.select(this)
+            .style("stroke", "black")
+            .style("opacity", 1)
+    }
+    var mousemove = function(d) {
+        Tooltip
+            .html(description(d))
+            .style("left", (d3.event.pageX - 200) + "px")
+            .style("top", (d3.event.pageY - 30) + "px")
+            .style("opacity", .95);
+    }
+    var mouseleave = function(d) {
+        Tooltip
+            .style("opacity", 0)
+        d3.select(this)
+            .style("stroke", "none")
+            .style("opacity", 0.8)
+    }
 
-  // Enter any new modes at the parent's previous position.
-  var nodeEnter = node.enter().append('g')
-      .attr('class', 'node')
-      .attr("transform", function(d) {
-        return "translate(" + source.y0 + "," + source.x0 + ")";
-      })
-      .on('click', click)
-      .on('dblclick',dblclick);
+    // Update the nodes...
+    var node = svg.selectAll('g.node')
+        .data(nodes, function(d) {return d.id || (d.id = ++i); })
 
-  // Add Circle for the nodes
-  nodeEnter.append('circle')
-      .attr('class', 'node')
-      .attr('r', 1e-6)
-      .style("fill", function(d) {
-          return d._children ? "lightsteelblue" : "#fff";
-      });
+    // Enter any new modes at the parent's previous position.
+    var nodeEnter = node.enter().append('g')
+        .attr('class', 'node')
+        .attr("transform", function(d) {
+            return "translate(" + source.y0 + "," + source.x0 + ")";
+        })
+        .on('click', click)
+        .on('dblclick',dblclick)
+        .on("mouseover", mouseover)
+        .on("mousemove", mousemove)
+        .on("mouseleave", mouseleave);
 
-  // Add labels for the nodes
-  nodeEnter.append('text')
-      .attr("dy", ".35em")
-      .attr("x", function(d) {
-          return d.children || d._children ? -13 : 13;
-      })
-      .attr("text-anchor", function(d) {
-          return d.children || d._children ? "end" : "start";
-      })
-      .text(function(d) { return d.data.name; });
+    // Add Circle for the nodes
+    nodeEnter.append('circle')
+        .attr('class', 'node')
+        .attr('r', 1e-6)
+        .style("fill", function(d) {
+            return d._children ? "lightsteelblue" : "#fff";
+        });
 
-  // UPDATE
-  var nodeUpdate = nodeEnter.merge(node);
+    // Add labels for the nodes
+    nodeEnter.append('text')
+        .attr("dy", ".35em")
+        .attr("x", function(d) {
+            return d.children || d._children ? -13 : 13;
+        })
+        .attr("text-anchor", function(d) {
+            return d.children || d._children ? "end" : "start";
+        })
+        .text(function(d) { return d.data.name; });
 
-  // Transition to the proper position for the node
-  nodeUpdate.transition()
-    .duration(duration)
-    .attr("transform", function(d) {
-        return "translate(" + d.y + "," + d.x + ")";
-     });
+    // UPDATE
+    var nodeUpdate = nodeEnter.merge(node);
 
-  // Update the node attributes and style
-  nodeUpdate.select('circle.node')
-    .attr('r', 10)
-    .style("fill", function(d) {
-        return d._children ? "lightsteelblue" : "#fff";
-    })
-    .attr('cursor', 'pointer');
+    // Transition to the proper position for the node
+    nodeUpdate.transition()
+        .duration(duration)
+        .attr("transform", function(d) {
+            return "translate(" + d.y + "," + d.x + ")";
+        });
+
+    // Update the node attributes and style
+    nodeUpdate.select('circle.node')
+        .attr('r', 10)
+        .style("fill", function(d) {
+            return d._children ? "lightsteelblue" : "#fff";
+        })
+        .attr('cursor', 'pointer');
 
 
-  // Remove any exiting nodes
-  var nodeExit = node.exit().transition()
-      .duration(duration)
-      .attr("transform", function(d) {
-          return "translate(" + source.y + "," + source.x + ")";
-      })
-      .remove();
+    // Remove any exiting nodes
+    var nodeExit = node.exit().transition()
+        .duration(duration)
+        .attr("transform", function(d) {
+            return "translate(" + source.y + "," + source.x + ")";
+        })
+        .remove();
 
-  // On exit reduce the node circles size to 0
-  nodeExit.select('circle')
-    .attr('r', 1e-6);
+    // On exit reduce the node circles size to 0
+    nodeExit.select('circle')
+        .attr('r', 1e-6);
 
-  // On exit reduce the opacity of text labels
-  nodeExit.select('text')
-    .style('fill-opacity', 1e-6);
+    // On exit reduce the opacity of text labels
+    nodeExit.select('text')
+        .style('fill-opacity', 1e-6);
 
-  // ****************** links section ***************************
+    // ****************** links section ***************************
 
-  // Update the links...
-  var link = svg.selectAll('path.link')
-      .data(links, function(d) { return d.id; });
+    // Update the links...
+    var link = svg.selectAll('path.link')
+        .data(links, function(d) { return d.id; });
 
-  // Enter any new links at the parent's previous position.
-  var linkEnter = link.enter().insert('path', "g")
-      .attr("class", "link")
-      .attr('d', function(d){
-        var o = {x: source.x0, y: source.y0}
-        return diagonal(o, o)})
-      .style("fill", "none")
-      .style("stroke", "#ccc")
-      .style("stroke-width", "2px");
-      // .style("stroke", function(d){return d.target.color})
-      // .style("stroke-width", function(d) { return d.target.path ? 5 : 1.5 });
+    // Enter any new links at the parent's previous position.
+    var linkEnter = link.enter().insert('path', "g")
+        .attr("class", "link")
+        .attr('d', function(d){
+            var o = {x: source.x0, y: source.y0}
+            return diagonal(o, o)})
+        .style("fill", "none")
+        .style("stroke", "#ccc")
+        .style("stroke-width", "2px");
+        // .style("stroke", function(d){return d.target.color})
+        // .style("stroke-width", function(d) { return d.target.path ? 5 : 1.5 });
 
-  // UPDATE
-  var linkUpdate = linkEnter.merge(link);
+    // UPDATE
+    var linkUpdate = linkEnter.merge(link);
 
-  // Transition back to the parent element position
-  linkUpdate.transition()
-      .duration(duration)
-      .attr('d', function(d){ return diagonal(d, d.parent) });
+    // Transition back to the parent element position
+    linkUpdate.transition()
+        .duration(duration)
+        .attr('d', function(d){ return diagonal(d, d.parent) });
 
-  // Remove any exiting links
-  var linkExit = link.exit().transition()
-      .duration(duration)
-      .attr('d', function(d) {
-        var o = {x: source.x, y: source.y}
-        return diagonal(o, o)
-      })
-      .remove();
+    // Remove any exiting links
+    var linkExit = link.exit().transition()
+        .duration(duration)
+        .attr('d', function(d) {
+            var o = {x: source.x, y: source.y}
+            return diagonal(o, o)
+        })
+        .remove();
 
-  // Store the old positions for transition.
-  nodes.forEach(function(d){
-    d.x0 = d.x;
-    d.y0 = d.y;
-  });
-  // centreNode(source);
+    // Store the old positions for transition.
+    nodes.forEach(function(d){
+        d.x0 = d.x;
+        d.y0 = d.y;
+    });
+    // centreNode(source);
 }
 
 // Creates a curved (diagonal) path from parent to the child nodes
