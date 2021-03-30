@@ -143,6 +143,7 @@ function zoomIn(){
 function zoomOut(){
   zoom.scaleBy(svg, 1 / 1.3);
 }
+
 // These dynamically load child data
 function loadData(node) {
     if(!node.loadedChildren) {
@@ -231,6 +232,20 @@ function description(state) {
         descr += "<br>";
     }
     return descr;
+}
+
+// Uncompress fluent/action information to a string description
+function hdescription(node) {
+    if(node.type == "fluent") {
+        var descr = "";
+        descr += node.object.action + " ";
+        node.object.parameters.forEach(param => {
+            descr += param + " ";
+        });
+        return descr;
+    } else {
+        return node.object;
+    }
 }
 
 function update(source){
@@ -407,26 +422,67 @@ function diagonal(s, d) {
 --------------------------------------------------------------------------------
 */
 
+/*
+--------------------------------------------------------------------------------
+                                START OF HEURISTIC GRAPH CODE
+--------------------------------------------------------------------------------
+*/
+
+// Formats graph data for a d3-style graph
+function formatGraphData(node) {
+    // Makes a graph
+    var g = makeGraph(dom, prob, node.data.state);
+
+    // Formatting style
+    var data = {"nodes":[], "links":[]};
+    // Holds the actions
+    var actions = [];
+    
+    // Run through each node in the graph, add to the nodes section of data
+    g.forEach(node => {
+        data.nodes.push({"id":node.index, "name":hdescription(node)});
+        // If the node is an action node, it also defines the links, so store 
+        // it for the second pass
+        if(node.type == "action") {
+            actions.push(node);
+        }
+    });
+
+    // Run through each action to generate the links
+    actions.forEach(action => {
+        // Goal actions do not have effects (terminal states), so ignore effects
+        // in this case
+        if(action.object != "goal") {
+            // Generate effects: Effects are nodes that are pointed to by the supplied node
+            for(let i = 0; i < action.effectIndices.length; i++) {
+                data.links.push({"source":action.index, "target":action.effectIndices[i]});
+            }
+        }
+        // Generate preconditions: Preconditions are nodes that point to the supplied node
+        for(let i = 0; i < action.preconditionIndices.length; i++) {
+            data.links.push({"source":action.preconditionIndices[i], "target":action.index});
+        }
+    });
+
+    return data;
+}
+
+// Launches the heuristic visualizer tab, formats data, and initiates the visualization
 function startHeuristicViz(node){
+    // Make a new tab for the viz
     window.new_tab('Node', function(editor_name){
       console.log("editor_name: "+ editor_name)
       $('#' +editor_name).html('<div style = "margin:13px 7px;text-align:center"><h2>Heuristic Visualization</h2><div id="heuristic"></div>');
       svgID = editor_name;
     });
-    console.log("Heuristic node: ", node);
-    //Create line element inside SVG
 
-    // We select the svg object for each tab based on its ID using d3.select
-        // #heuristic: id for the svg object that visualizes heuristic computation
-        // #statespace: id for the svg object that visualizes statespace traversal
+    // Loading heuristic data from the node
+    data = formatGraphData(node);
 
     // Set the dimensions and margins of the diagram
     var margin = {top: 20, right: 30, bottom: 30, left: 90},
     width = 1100 - margin.left - margin.right,
     height = 700 - margin.top - margin.bottom;
-
-    // svgid = $("heuristic")
-    console.log("id is:" +svgID );
 
     var svg = d3.select('#' + svgID)
         .append("svg")
@@ -437,38 +493,37 @@ function startHeuristicViz(node){
         .append("g")
         .attr("transform","translate(" + margin.left + "," + margin.top + ")");
 
-    d3.json("https://raw.githubusercontent.com/holtzy/D3-graph-gallery/master/DATA/data_network.json", function(data) {
-        // Initialize the links
-        var link = svg
-            .selectAll("line")
-            .data(data.links)
-            .enter()
-            .append("line")
-            .style("stroke", "#aaa")
+    // Initialize the links
+    var link = svg
+        .selectAll("line")
+        .data(data.links)
+        .enter()
+        .append("line")
+        .style("stroke", "#aaa")
 
-        // Initialize the nodes
-        var node = svg
-            .selectAll("circle")
-            .data(data.nodes)
-            .enter()
-            .append("circle")
-            .attr("r", 20)
-            .style("fill", "green");
-            // .style("fill", "#69b3a2")
+    // Initialize the nodes
+    var node = svg
+        .selectAll("circle")
+        .data(data.nodes)
+        .enter()
+        .append("circle")
+        .attr("r", 20)
+        .style("fill", "green");
+        // .style("fill", "#69b3a2")
 
-        // Let's list the force we wanna apply on the network
-        var simulation = d3.forceSimulation(data.nodes)                 // Force algorithm is applied to data.nodes
-        .force("link", d3.forceLink()                               // This force provides links between nodes
-                .id(function(d) { return d.id; })                     // This provide  the id of a node
-                .links(data.links)                                    // and this the list of links
+    // Let's list the force we wanna apply on the network
+    var simulation = d3.forceSimulation(data.nodes)              // Force algorithm is applied to data.nodes
+        .force("link", d3.forceLink()                                // This force provides links between nodes
+            .id(function(d) { return d.id; })                    // This provide  the id of a node
+            .links(data.links)                                   // and this the list of links
         )
-        .force("charge", d3.forceManyBody().strength(-400))         // This adds repulsion between nodes. Play with the -400 for the repulsion strength
-        .force("center", d3.forceCenter(width / 2, height / 2))     // This force attracts nodes to the center of the svg area
+        .force("charge", d3.forceManyBody().strength(-400))          // This adds repulsion between nodes. Play with the -400 for the repulsion strength
+        .force("center", d3.forceCenter(width / 2, height / 2))      // This force attracts nodes to the center of the svg area
         .on("end", ticked);
 
-        // This function is run at each iteration of the force algorithm, updating the nodes position.
-        function ticked() {
-        link
+    // This function is run at each iteration of the force algorithm, updating the nodes position.
+    function ticked() {
+        link    
             .attr("x1", function(d) { return d.source.x; })
             .attr("y1", function(d) { return d.source.y; })
             .attr("x2", function(d) { return d.target.x; })
@@ -477,100 +532,21 @@ function startHeuristicViz(node){
         node
             .attr("cx", function (d) { return d.x+6; })
             .attr("cy", function(d) { return d.y-6; });
-        }
-    });
-    // loadHeuristicData(node);
+    }
 }
 
 
+/*
+--------------------------------------------------------------------------------
+                                START OF HEURISTIC CODE
+--------------------------------------------------------------------------------
+*/
 function loadHeuristicData(node){
-  console.log('node:',node);
-  processDomain(dom);
-  console.log('----------------------');
-  processProblem(prob);
-  console.log('----------------------');
+    processDomain(dom);
+    processProblem(prob);
 
-  var fluent = {
-      type: 'fluent',
-      object: { operation: 'not', action: 'handempty', parameters: [] },
-      value: Infinity,
-      index: 3
-  };
-
-  initialState = prob.states[0];
-  var child = StripsManager.getChildStates(dom, initialState);
-  child = child[1].state
-//   console.log('Inital State');
-//   console.log(initialState.actions);
-  var graph2 = makeGraph(dom, prob, node.data.state);
-  console.log("This is the graph from makeGraph: ", graph2);
-  var heuristic = autoUpdate(graph2);
-  console.log('----------------------');
-  visual(heuristic, graph2);
+    var heuristic = autoUpdate(g);
 }
-
-function visual(heuristic, graph){
-  console.log(graph);
-
-  var view = d3.select("svg"),
-    width = +view.attr("width"),
-    height = +view.attr("height");
-
-  var color = d3.scaleOrdinal(d3.schemeCategory20);
-
-  var simulation = d3.forceSimulation()
-    .force("link", d3.forceLink().id(function(d) { return d.id; }))
-    .force("charge", d3.forceManyBody())
-    .force("center", d3.forceCenter(width / 2, height / 2));
-
-
-
-  var node = view.append("g")
-    .selectAll("g")
-    .data(graph)
-    .enter().append("g")
-
-  // var link = view.append("g")
-  //     .attr("class", "link")
-  //     .selectAll("line")
-  //     .data(graph.links)
-  //     .enter().append("line")
-  //     .attr("stroke-width", function(d) { return Math.sqrt(d.value); });
-
-  var circles = node.append("circle")
-    .attr("r", 5)
-    .attr("fill", "black")
-    // .attr("fill", function(d) { return color(d.group); });
-    // .call(d3.drag();
-        // .on("start", dragstarted)
-        // .on("drag", dragged)
-        // .on("end", dragended));
-  var lables = node.append("text")
-        .text(function(d) {
-          return d.id;
-        })
-        .attr('x', 6)
-        .attr('y', 3);
-
-    node.append("title").text(function(d) { return d.id; });
-
-    // simulation.nodes(graph.nodes).on("tick", ticked);
-
-    // simulation.force("link").links(graph.links);
-
-}
-function ticked() {
-    link
-        .attr("x1", function(d) { return d.source.x; })
-        .attr("y1", function(d) { return d.source.y; })
-        .attr("x2", function(d) { return d.target.x; })
-        .attr("y2", function(d) { return d.target.y; });
-
-    node
-        .attr("transform", function(d) {
-          return "translate(" + d.x + "," + d.y + ")";
-        })
-  }
 
 function processDomain(domain) {
     console.log(domain);
