@@ -469,6 +469,7 @@ function formatGraphData(node) {
 
 // Launches the heuristic visualizer tab, formats data, and initiates the visualization
 function startHeuristicViz(node){
+    loadHeuristicData(node.data.state);
     // Make a new tab for the viz
     window.new_tab('Node', function(editor_name){
       console.log("editor_name: "+ editor_name)
@@ -625,7 +626,8 @@ function startHeuristicViz(node){
 function loadHeuristicData(node){
     processDomain(dom);
     processProblem(prob);
-    var heuristic = autoUpdate(g);
+    graph = makeGraph(dom, prob, node);
+    var heuristic = autoUpdate(graph);
 }
 
 function processDomain(domain) {
@@ -784,18 +786,18 @@ function makeGraph(domain, problem, state){
     return graph;
 }
 
-function getFluentValue(node, graph){
+function getUpdatedFluentValue(node, graph){
     var adders = getAdders(node, graph);
-    var lowestSum =  Number.POSITIVE_INFINITY;
-    var currentSum = 0;
+    var lowestAdder =  Number.POSITIVE_INFINITY;
+    //var currentSum = 0;
     for (adder in adders){
         currentAdder = adders[adder];
-        currentSum = getSumOfPreconditions(adder, graph);
-        if (lowestSum < currentSum){
-            lowestSum = currentSum;
+        //currentSum = getSumOfPreconditions(adder, graph);
+        if (lowestAdder < currentAdder){
+            lowestAdder = currentAdder;
         }
     }
-    return lowestSum;
+    return lowestAdder;
 }
 
 function getSumOfPreconditions(actionNode, graph){
@@ -819,10 +821,10 @@ function getAdders(fluentNode, graph){
 function updateValue(graph, currentNode){
     var update = false;
     if (currentNode.type == 'fluent'){
-        updateVal = getFluentValue(currentNode, graph);
+        updateVal = getUpdatedFluentValue(currentNode, graph);
     }
     else{
-        updateVal= getSumOfPreconditions(currentNode, graph);
+        updateVal= 1 + getSumOfPreconditions(currentNode, graph);
     }
     if (updateVal < currentNode.value){
         currentNode.value = updateVal
@@ -844,11 +846,14 @@ function autoUpdate(graph) {
     var update = true;
     var updateData;
     while (update){
+        update = false;
         for(node in graph){
             currentNode = graph[node];
             updateData = updateValue(graph, currentNode);
             graph = updateData[0];
-            update = updateData[1];
+            if (updateData[1] == true){
+                update = true;
+            }
         }
     }
     goalIndex = graph.length - 1;
