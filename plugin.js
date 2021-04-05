@@ -432,7 +432,7 @@ function diagonal(s, d) {
 function formatGraphData(node) {
     // Makes a graph
     var g = makeGraph(dom, prob, node.data.state);
-
+    console.log("G:", g);
     // Formatting style
     var data = {"nodes":[], "links":[]};
     // Holds the actions
@@ -440,7 +440,7 @@ function formatGraphData(node) {
 
     // Run through each node in the graph, add to the nodes section of data
     g.forEach(node => {
-        data.nodes.push({"id":node.index, "name":hdescription(node)});
+        data.nodes.push({"id":node.index, "name":hdescription(node), "value":node.value});
         // If the node is an action node, it also defines the links, so store
         // it for the second pass
         if(node.type == "action") {
@@ -479,6 +479,7 @@ function startHeuristicViz(node){
 
     // Loading heuristic data from the node
     data = formatGraphData(node);
+    console.log(data);
     var color = d3.scaleSequential().domain([0,data.nodes.length-1]).interpolator(d3.interpolateViridis);;
     var Tooltip = d3.select(".tooltip");
 
@@ -519,8 +520,6 @@ function startHeuristicViz(node){
         .append("g")
         .attr("transform","translate(" + margin.left + "," + margin.top + ")");
 
-   var defs = svg.append('svg:defs')
-
     svg.append('defs').append('marker')
        .attr('id','arrowhead')
        .attr('viewBox','-0 -5 10 10')
@@ -550,10 +549,20 @@ function startHeuristicViz(node){
         .enter()
         .append("circle")
         .attr("r", 15)
-        .on("mouseover", mouseover)
-        .on("mousemove", mousemove)
-        .on("mouseleave", mouseleave)
-        .style("fill", function(d) {return color(d.id)});
+        .style("fill", function(d) {return color(d.id)})
+        .call(d3.drag()
+            .on("start", dragstarted)
+            .on("drag", dragged)
+            .on("end", dragended));
+
+    // This is the label for each node
+	var text = svg.append("g").selectAll("text")
+        .data(data.nodes)
+        .enter().append("text")
+        .attr("dx",12)
+        .attr("dy",".35em")
+        .text(function(d) { return d.name + " Value: " + d.value; })
+        .attr("text-anchor", "middle");
 
     // Let's list the force we wanna apply on the network
     var simulation = d3.forceSimulation(data.nodes)              // Force algorithm is applied to data.nodes
@@ -561,9 +570,11 @@ function startHeuristicViz(node){
             .id(function(d) { return d.id; })                    // This provide  the id of a node
             .links(data.links)                                   // and this the list of links
         )
-        .force("charge", d3.forceManyBody().strength(-400))          // This adds repulsion between nodes. Play with the -400 for the repulsion strength
+        .force("charge", d3.forceManyBody().strength(-1000))          // This adds repulsion between nodes. Play with the -400 for the repulsion strength
         .force("center", d3.forceCenter(width / 2, height / 2))      // This force attracts nodes to the center of the svg area
         .on("end", ticked);
+
+
 
     // This function is run at each iteration of the force algorithm, updating the nodes position.
     function ticked() {
@@ -576,7 +587,30 @@ function startHeuristicViz(node){
         node
             .attr("cx", function (d) { return d.x+6; })
             .attr("cy", function(d) { return d.y-6; });
+        text
+            .attr("x", function(d) { return d.x; })
+            .attr("y", function(d) { return d.y; });
+            
     }
+
+    function dragstarted(d) {
+        if (!d3.event.active) simulation.alphaTarget(0.3).restart();
+        d.fx = d.x;
+        d.fy = d.y;
+        console.log(d);
+      }
+      
+    function dragged(d) {
+        d.fx = d3.event.x;
+        d.fy = d3.event.y;
+    }
+    
+    function dragended(d) {
+        if (!d3.event.active) simulation.alphaTarget(0);
+        d.fx = null;
+        d.fy = null;
+    }
+
 }
 
 
