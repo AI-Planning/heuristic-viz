@@ -521,62 +521,84 @@ function startHeuristicViz(node){
         .append("g")
         .attr("transform","translate(" + margin.left + "," + margin.top + ")");
 
-    svg.append('defs').append('marker')
-       .attr('id','arrowhead')
-       .attr('viewBox','-0 -5 10 10')
-       .attr('refX',13)
-       .attr('refY',0,)
-       .attr('orient','auto')
-       .attr('markerWidth',13)
-       .attr('markerHeight',13)
-       .append('svg:path')
-       .attr('d', 'M 0,-5 L 10 ,0 L 0,5')
-       .attr('fill', '#999')
-       .style('stroke','none');
+    var colors = d3.scaleOrdinal(d3.schemeCategory10);
+    
+    var node, link, edgepaths, edgelabels;
 
-    // Initialize the links
-    var link = svg
-        .selectAll("line")
-        .data(data.links)
-        .enter()
-        .append("line")
-        .style("stroke", "#aaa")
-        .attr('marker-end','url(#arrowhead)');
-
-    // Initialize the nodes
-    var node = svg
-        .selectAll("circle")
-        .data(data.nodes)
-        .enter()
-        .append("circle")
-        .attr("r", 15)
-        .style("fill", function(d) {return color(d.id)})
-        .call(d3.drag()
-            .on("start", dragstarted)
-            .on("drag", dragged)
-            .on("end", dragended));
-
-    // This is the label for each node
-	var text = svg.append("g").selectAll("text")
-        .data(data.nodes)
-        .enter().append("text")
-        .attr("dx",12)
-        .attr("dy",".35em")
-        .text(function(d) { return d.name + " Value: " + d.value; })
-        .attr("text-anchor", "middle");
+    svg
+    .append('defs')
+    .append('marker')
+    .attr('id','arrowhead')
+    .attr('viewBox', '-0 -5 10 10')
+    .attr('refX', 20)
+    .attr('refY', 0)
+    .attr('orient', 'auto')
+    .attr('markerWidth', 8)
+    .attr('markerHeight', 14)
+    .attr('xoverflow','visible')
+    .append('svg:path')
+    .attr('d', 'M 0,-5 L 10 ,0 L 0,5')
+    .attr('fill', 'green')
+    .style('stroke','none');
 
     // Let's list the force we wanna apply on the network
     var simulation = d3.forceSimulation(data.nodes)              // Force algorithm is applied to data.nodes
-        .force("link", d3.forceLink()                                // This force provides links between nodes
-            .id(function(d) { return d.id; })                    // This provide  the id of a node
-            .links(data.links)                                   // and this the list of links
-        )
-        .force("charge", d3.forceManyBody().strength(-1000))          // This adds repulsion between nodes. Play with the -400 for the repulsion strength
+        .force("link", (d3.forceLink()                                // This force provides links between nodes
+            .id(function(d, i) { return d.id; })
+            .distance(200)
+            .strength(1)                    // This provide  the id of a node                                // and this the list of links
+        ))
+        .force("charge", d3.forceManyBody().strength(-400))          // This adds repulsion between nodes. Play with the -400 for the repulsion strength
         .force("center", d3.forceCenter(width / 2, height / 2))      // This force attracts nodes to the center of the svg area
         .on("end", ticked);
 
+    update(data.links, data.nodes)
 
+    function update(links, nodes) {
+        link = svg.selectAll(".link")
+            .data(links)
+            .enter()
+            .append("line")
+            .attr("class", "link")
+            .attr("stroke", "#999")
+            .attr("stroke-width", "1px")
+            .attr("marker-end", "url(#arrowhead)")
 
+        link.append("title").text(d => d.type);
+
+        node = svg.selectAll('.node')
+            .data(nodes)
+            .enter()
+            .append('g')
+            .attr('class', 'node')
+            .attr('fixed', true)
+            .call(
+                d3.drag()
+                .on('start', dragstarted)
+                .on('drag', dragged)
+                .on('end', dragended)
+            );
+
+        node.append('circle')
+            .attr('r', 10)
+            .style('fill', (d,i) => colors(i))
+
+        node.append('title')
+            .text((d) => d.id)
+
+        node.append('text')
+            .attr('dy', -3)
+            .text((d) => d.name + " Value: " + d.value)
+
+        simulation
+            .nodes(nodes)
+            .on('tick', ticked);
+
+        simulation.force('link')
+            .links(links);
+    }
+
+    
     // This function is run at each iteration of the force algorithm, updating the nodes position.
     function ticked() {
         link
@@ -586,11 +608,11 @@ function startHeuristicViz(node){
             .attr("y2", function(d) { return d.target.y; });
 
         node
-            .attr("cx", function (d) { return d.x+6; })
-            .attr("cy", function(d) { return d.y-6; });
-        text
-            .attr("x", function(d) { return d.x; })
-            .attr("y", function(d) { return d.y; });
+            .attr("transform", (d) => "translate(" + d.x + ", " + d.y + ")");
+
+        // edgepaths.attr('d', (d) => (
+        //     `M ${d.source.x} ${d.source.y} L ${d.target.x} ${d.target.y}`
+        // ));
             
     }
 
@@ -598,7 +620,7 @@ function startHeuristicViz(node){
         if (!d3.event.active) simulation.alphaTarget(0.3).restart();
         d.fx = d.x;
         d.fy = d.y;
-        console.log(d);
+        d.fixed = false;
       }
       
     function dragged(d) {
@@ -607,9 +629,7 @@ function startHeuristicViz(node){
     }
     
     function dragended(d) {
-        if (!d3.event.active) simulation.alphaTarget(0);
-        d.fx = null;
-        d.fy = null;
+        d.fixed = true;
     }
 
 }
