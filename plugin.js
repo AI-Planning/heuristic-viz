@@ -1,9 +1,10 @@
 // Global variables
 var tree, svg, diagonal, stateCounter, i, duration, treeData,treeHeight,goTree = true,
-root, goalState, dom, prob, tooltip, treemap, d3, zoom, viewerWidth, viewerHeight,svgCount=1, svgID;
+root, goalState, tooltip, treemap, d3, zoom, viewerWidth, viewerHeight,svgCount=1, svgID;
 
 
-var stateCounter;
+// Global Variables
+var stateCounter, goal, graph, DOMAIN, PROBLEM;
 
 // Called when you click 'Go' on the file chooser
 function loadStatespace() {
@@ -47,13 +48,12 @@ function loadStatespace() {
 
     // This parses the problem and domain text, froreturns from a callback
     StripsManager.loadFromString(domain, problem, function(d, p) {
-        dom = d;
-        prob = p;
-        // var graph = StripsManager.graph(d, p);
-        // treeHeight = 0;
-        // treeData = getTreeData(graph, 0);
+        // Allocating global variables
+        DOMAIN = d;
+        PROBLEM = p;
         treeData = {"name":"root", "children":[], "state":p.states[0], "loadedChildren":false};
         stateCounter = 1;
+        goal = p.states[1];
         launchViz();
     });
 }
@@ -67,8 +67,6 @@ function launchViz(){
       '<div id="statespace"></div>' +
       '<node circle style ="fill:black;stroke:black;stroke-width:3px;></node circle>' +
       '<p id="hv-output"></p>');
-      console.log(editor_name);
-      // '<pre id="svg-container" style="background-color:white;font-family:\'Helvetica Neue\',Helvetica,Arial,sans-serif;width:81vw;height:80vh"></pre>');
     });
 }
 
@@ -76,70 +74,74 @@ function launchViz(){
 // Run when the make tree button is pressed
 // Generates the SVG object, and loads the tree data into a d3 style tree
 function makeTree() {
-  if (goTree){
-    console.log("Called make tree");
+    // Prevents the creation of more than one tree
+    if (goTree){
+        // Set the dimensions and margins of the diagram
+        var margin = {top: 20, right: 30, bottom: 30, left: 90},
+        width = 1100 - margin.left - margin.right,
+        height = 700 - margin.top - margin.bottom;
 
-    // Set the dimensions and margins of the diagram
-    var margin = {top: 20, right: 30, bottom: 30, left: 90},
-    width = 1100 - margin.left - margin.right,
-    height = 700 - margin.top - margin.bottom;
+        // Initialize d3 zoom
+        zoom = d3.zoom().on('zoom', function() {
+                    svg.attr('transform', d3.event.transform);
+                    })
+        
+        // Declaring the SVG object, init attributes
+        svg = d3.select("#statespace").append("svg")
+            .attr("width", width + margin.right + margin.left)
+            .attr("height", height + margin.top + margin.bottom)
+            .style("background-color", "white")
+            .call(zoom)
+            .on("dblclick.zoom", null)
+            .append("g")
+            .attr("transform", "translate("+ margin.left + "," + margin.top + ")")
+            .append("g")
+            .attr("transform", "translate("+ (width/2) - 30 + "," + margin.top + ")");
 
+        // create the tooltip
+        d3.select("#statespace")
+            .append("div")
+            .style("opacity", 0)
+            .attr("class", "tooltip")
+            .style("background-color", "white")
+            .style("border", "solid")
+            .style("border-width", "2px")
+            .style("border-radius", "5px")
+            .style("padding", "5px")
 
-    zoom = d3.zoom().on('zoom', function() {
-                   svg.attr('transform', d3.event.transform);
-                 })
+        // Num and duration of animations
+        i = 0;
+        duration = 750;
 
-    svg = d3.select("#statespace").append("svg")
-        .attr("width", width + margin.right + margin.left)
-        .attr("height", height + margin.top + margin.bottom)
-        .style("background-color", "white")
-        .call(zoom)
-        .on("dblclick.zoom", null)
-        .append("g")
-        .attr("transform", "translate("+ margin.left + "," + margin.top + ")")
-        .append("g")
-        .attr("transform", "translate("+ (width/2) - 30 + "," + margin.top + ")");
+        // declares a tree layout and assigns the size
+        treemap = d3.tree().size([height, width]);
 
+        // Assigns parent, children, height, depth
+        root = d3.hierarchy(treeData, function(d) { return d.children; });
+        root.x0 = height / 2;
+        root.y0 = 0;
 
+        // Collapse after the second level
 
-    // create a tooltip
-    d3.select("#statespace")
-        .append("div")
-        .style("opacity", 0)
-        .attr("class", "tooltip")
-        .style("background-color", "white")
-        .style("border", "solid")
-        .style("border-width", "2px")
-        .style("border-radius", "5px")
-        .style("padding", "5px")
+        // Loads children of root
+        loadData(root);
+        // Expands the root node to show loaded children
+        expandNode(root);
 
+        // Display
+        update(root);
 
-    i = 0;
-    duration = 750;
-
-    // declares a tree layout and assigns the size
-    treemap = d3.tree().size([height, width]);
-
-    // Assigns parent, children, height, depth
-    root = d3.hierarchy(treeData, function(d) { return d.children; });
-    root.x0 = height / 2;
-    root.y0 = 0;
-
-    // Collapse after the second level
-    // root.children.forEach(collapse);
-    console.log("ROOT: ", root);
-    loadData(root);
-    expandNode(root);
-
-    update(root);
-    goTree = false;
+        // Preventing multiple trees
+        goTree = false;
   }
 }
 
+// d3 zoom in
 function zoomIn(){
   zoom.scaleBy(svg.transition().duration(750), 1.3);
 }
 
+// d3 zoom out
 function zoomOut(){
   zoom.scaleBy(svg, 1 / 1.3);
 }
@@ -148,7 +150,7 @@ function zoomOut(){
 function loadData(node) {
     if(!node.loadedChildren) {
       // Node has a 'stripsState' field that contains the corresponding planning state
-      const data = StripsManager.getChildStates(dom, node.data.state);
+      const data = StripsManager.getChildStates(DOMAIN, node.data.state);
 
       data.forEach((s) => {
           // Add each item to the node that we want to expands child field
@@ -180,17 +182,19 @@ function expandNode(node) {
     // Add to parent's children array and collapse
     node.children = newHierarchyChildren;
     node._children = newHierarchyChildren;
-    //   this.update(node);
 }
 
 // Toggle children on click.
 function click(d) {
   if (d3.event.defaultPrevented) return;
 
+<<<<<<< HEAD
     console.log("Clicked node :", d.data.state.actions);
     console.log(d.data.state);
     console.log(StripsManager.applicableActions(dom, d.data.state));
     // console.log("testing getChildren: ", StripsManager.getChildStates(dom, d.data.state));
+=======
+>>>>>>> 71e727a525d956fda0dfb48e039e211f5b4839d8
     if(!d.loadedChildren && !d.children) {
         // Load children, expand
         loadData(d);
@@ -250,6 +254,7 @@ function hdescription(node) {
     }
 }
 
+// Updates the tree: drawing links, nodes, and tooltip
 function update(source){
     //Assigns the x and y position for the nodes
     var treeData = treemap(root);
@@ -258,7 +263,6 @@ function update(source){
         links = treeData.descendants().slice(1);
 
     // Normalize for fixed-depth.
-    // nodes.forEach(function(d){ d.y = d.depth * 180});
     nodes.forEach(function(d) {
         if (d.depth > treeHeight)
         treeHeight = d.depth;
@@ -270,6 +274,7 @@ function update(source){
             }
         }
     });
+
     // ****************** Nodes section ***************************
     var Tooltip = d3.select(".tooltip");
 
@@ -284,8 +289,8 @@ function update(source){
     var mousemove = function(d) {
         Tooltip
             .html(description(d))
-            .style("left", (d3.event.pageX - 200) + "px")
-            .style("top", (d3.event.pageY - 30) + "px")
+            .style("left", (d3.event.pageX - 400) + "px")
+            .style("top", (d3.event.pageY - 50) + "px")
             .style("opacity", .95);
     }
     var mouseleave = function(d) {
@@ -317,7 +322,13 @@ function update(source){
         .attr('class', 'node')
         .attr('r', 1e-6)
         .style("fill", function(d) {
-            return d._children ? "#000080" : "lightsteelblue";
+            if(StripsManager.isGoal(d.data.state, goal)) {
+                return "yellow";
+            } else if (d._children) {
+                return "#000080"
+            } else {
+                return "lightsteelblue";
+            }
         });
 
     // Add labels for the nodes
@@ -381,8 +392,6 @@ function update(source){
         .style("fill", "none")
         .style("stroke", "#ccc")
         .style("stroke-width", "2px");
-        // .style("stroke", function(d){return d.target.color})
-        // .style("stroke-width", function(d) { return d.target.path ? 5 : 1.5 });
 
     // UPDATE
     var linkUpdate = linkEnter.merge(link);
@@ -433,9 +442,14 @@ function diagonal(s, d) {
 // Formats graph data for a d3-style graph
 function formatGraphData(node, graph) {
     // Makes a graph
+<<<<<<< HEAD
    // var g = makeGraph(dom, prob, node.data.state);
     var g = graph;
     console.log("G:", g);
+=======
+    g = makeGraph(DOMAIN, PROBLEM, node.data.state);
+
+>>>>>>> 71e727a525d956fda0dfb48e039e211f5b4839d8
     // Formatting style
     var data = {"nodes":[], "links":[]};
     // Holds the actions
@@ -443,7 +457,7 @@ function formatGraphData(node, graph) {
 
     // Run through each node in the graph, add to the nodes section of data
     g.forEach(node => {
-        data.nodes.push({"id":node.index, "name":hdescription(node), "value":node.value});
+        data.nodes.push({"id":node.index, "name":hdescription(node), "type":node.type, "value":node.value, "node":node});
         // If the node is an action node, it also defines the links, so store
         // it for the second pass
         if(node.type == "action") {
@@ -467,6 +481,7 @@ function formatGraphData(node, graph) {
         }
     });
 
+    // Result
     return data;
 }
 
@@ -478,7 +493,6 @@ function startHeuristicViz(node){
     window.new_tab('Node', function(editor_name){
       console.log("editor_name: "+ editor_name)
       $('#' +editor_name).html('<div style = "margin:13px 7px;text-align:center"><h2>Heuristic Visualization</h2><div id="heuristic"></div>');
-      // '<div style="width:200px;height:26px;background:linear-gradient(to right,blue,red);border-radius:4px;float:right">');
       svgID = editor_name;
     });
 
@@ -518,6 +532,7 @@ function startHeuristicViz(node){
     width = 1100 - margin.left - margin.right,
     height = 700 - margin.top - margin.bottom;
 
+    // Init SVG object
     var svg = d3.select('#' + svgID)
         .append("svg")
         .attr("width", width + margin.left + margin.right)
@@ -526,10 +541,8 @@ function startHeuristicViz(node){
         .style("margin-left", "30px")
         .append("g")
         .attr("transform","translate(" + margin.left + "," + margin.top + ")");
-
-    var colors = d3.scaleOrdinal(d3.schemeCategory10);
     
-    var node, link, edgepaths, edgelabels;
+    var node, link;
 
     svg
     .append('defs')
@@ -558,8 +571,10 @@ function startHeuristicViz(node){
         .force("center", d3.forceCenter(width / 2, height / 2))      // This force attracts nodes to the center of the svg area
         .on("end", ticked);
 
+    // Draw the graph's links and nodes
     update(data.links, data.nodes)
 
+    // Draws the graph with d3
     function update(links, nodes) {
         link = svg.selectAll(".link")
             .data(links)
@@ -578,6 +593,8 @@ function startHeuristicViz(node){
             .append('g')
             .attr('class', 'node')
             .attr('fixed', true)
+            .on("dblclick", dclk)
+            .on("click", clk)
             .call(
                 d3.drag()
                 .on('start', dragstarted)
@@ -587,7 +604,7 @@ function startHeuristicViz(node){
 
         node.append('circle')
             .attr('r', 10)
-            .style('fill', (d,i) => colors(i))
+            .style('fill', (d,i) => getColor(d))
 
         node.append('title')
             .text((d) => d.id)
@@ -614,12 +631,7 @@ function startHeuristicViz(node){
             .attr("y2", function(d) { return d.target.y; });
 
         node
-            .attr("transform", (d) => "translate(" + d.x + ", " + d.y + ")");
-
-        // edgepaths.attr('d', (d) => (
-        //     `M ${d.source.x} ${d.source.y} L ${d.target.x} ${d.target.y}`
-        // ));
-            
+            .attr("transform", (d) => "translate(" + d.x + ", " + d.y + ")");            
     }
 
     function dragstarted(d) {
@@ -638,18 +650,41 @@ function startHeuristicViz(node){
         d.fixed = true;
     }
 
+    // Double click
+    function dclk(d) {
+        d.fixed = false;
+    }
+
+    // Click
+    function clk(d) {
+        console.log(d);
+        updateValue(g, d.node);
+    }
+
+    // Returns node color based on type / being the goal node
+    function getColor(d) {
+        if (d.name == "goal") {
+            return "yellow";
+        } else if (d.type == "action") {
+            return "red";
+        } else {
+            return "green";
+        }
+    }
+
 }
 
 
 /*
 --------------------------------------------------------------------------------
-                                START OF HEURISTIC CODE
+                            START OF HEURISTIC CODE
 --------------------------------------------------------------------------------
 */
 
 
 
 function loadHeuristicData(node){
+<<<<<<< HEAD
     hAdd = true;
     processDomain(dom);
     processProblem(prob);
@@ -657,6 +692,11 @@ function loadHeuristicData(node){
     graphCopy = graph;
     var heuristic = autoUpdate(graph, hAdd);
     return graphCopy;
+=======
+    processDomain(DOMAIN);
+    processProblem(PROBLEM);
+    var heuristic = autoUpdate(g);
+>>>>>>> 71e727a525d956fda0dfb48e039e211f5b4839d8
 }
 
 function processDomain(domain) {
@@ -797,6 +837,7 @@ function makeFluentsLowerCase(fluents){
     }
     return fluents;
 }
+
 function makeGoalNode(problem, graph){
     goalState = makeFluentsLowerCase(problem.states[1].actions);
     preconditionIndices = getFluentIndexes(goalState, graph);
@@ -897,7 +938,14 @@ function getAdders(fluentNode, graph){
     return adders;
 }
 
+<<<<<<< HEAD
 function updateValue(graph, currentNode, hAdd){
+=======
+// Updates a heuristic node
+function updateValue(graph, currentNode){
+    console.log("Called update value with graph: ", graph);
+    console.log("Called update value with currentNode: ", currentNode);
+>>>>>>> 71e727a525d956fda0dfb48e039e211f5b4839d8
     var update = false;
     if (currentNode.type == 'fluent'){
         updateVal = getUpdatedFluentValue(currentNode, graph);
