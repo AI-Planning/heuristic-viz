@@ -188,6 +188,8 @@ function click(d) {
   if (d3.event.defaultPrevented) return;
 
     console.log("Clicked node :", d.data.state.actions);
+    console.log(d.data.state);
+    console.log(StripsManager.applicableActions(dom, d.data.state));
     // console.log("testing getChildren: ", StripsManager.getChildStates(dom, d.data.state));
     if(!d.loadedChildren && !d.children) {
         // Load children, expand
@@ -429,9 +431,10 @@ function diagonal(s, d) {
 */
 
 // Formats graph data for a d3-style graph
-function formatGraphData(node) {
+function formatGraphData(node, graph) {
     // Makes a graph
-    var g = makeGraph(dom, prob, node.data.state);
+   // var g = makeGraph(dom, prob, node.data.state);
+    var g = graph;
     console.log("G:", g);
     // Formatting style
     var data = {"nodes":[], "links":[]};
@@ -469,7 +472,8 @@ function formatGraphData(node) {
 
 // Launches the heuristic visualizer tab, formats data, and initiates the visualization
 function startHeuristicViz(node){
-    loadHeuristicData(node.data.state);
+
+    
     // Make a new tab for the viz
     window.new_tab('Node', function(editor_name){
       console.log("editor_name: "+ editor_name)
@@ -479,7 +483,9 @@ function startHeuristicViz(node){
     });
 
     // Loading heuristic data from the node
-    data = formatGraphData(node);
+    graph = loadHeuristicData(node.data.state);
+    data = formatGraphData(node, graph);
+    
     console.log(data);
     var color = d3.scaleSequential().domain([0,data.nodes.length-1]).interpolator(d3.interpolateViridis);;
     var Tooltip = d3.select(".tooltip");
@@ -644,10 +650,13 @@ function startHeuristicViz(node){
 
 
 function loadHeuristicData(node){
+    hAdd = true;
     processDomain(dom);
     processProblem(prob);
     graph = makeGraph(dom, prob, node);
-    var heuristic = autoUpdate(graph);
+    graphCopy = graph;
+    var heuristic = autoUpdate(graph, hAdd);
+    return graphCopy;
 }
 
 function processDomain(domain) {
@@ -711,11 +720,21 @@ function makeFluentNodes(fluents, state){
     for (fluent in fluents){
         currentFluent = fluents[fluent];
         if (isFluentInState(currentFluent, state.actions)){
-            newNode = {'type':'fluent', 'object':currentFluent, 'value':0, 'index':index};
+            newNode = {
+                'type':'fluent', 
+                'object':currentFluent, 
+                'value':0, 
+                'index':index
+            };
             fluentNodeList.push(newNode);
         }
         else{
-            newNode = {'type':'fluent', 'object':currentFluent, 'value': Number.POSITIVE_INFINITY, 'index':index};
+            newNode = {
+                'type':'fluent',
+                'object':currentFluent, 
+                'value': Number.POSITIVE_INFINITY,
+                'index':index
+                };
             fluentNodeList.push(newNode);
         }
 
@@ -734,12 +753,13 @@ function makeActionNodes(actions, graph){
         newNode = {
             'type':'action',
             'object': currentAction.action,
-            'value':1,
+            'value':Number.POSITIVE_INFINITY,
             'preconditions': currentAction.precondition ,
             'preconditionIndices': preconditionIndices,
             'effect': currentAction.effect,
             'effectIndices': effectIndices,
-            'index': index };
+            'index': index 
+        };
         graph.push(newNode);
         index = index + 1;
     }
@@ -787,17 +807,36 @@ function makeGoalNode(problem, graph){
         'preconditions': goalState,
         'preconditionIndices': preconditionIndices,
         'effect': null,
-        'index': graph.length }
+        'effectIndices' : [],
+        'index': graph.length 
+    }
     graph.push(newNode);
     return graph;
 }
+function unMapFluents(state){
+    var newState = state;
+    map = {"a":"a", "b": "b",  "y":"t1", "x":"t2"};
+    for(fluent in newState.actions){
+        currentFluent = newState.actions[fluent];
+        for (param in currentFluent.parameters){
+            currentParam = currentFluent.parameters[param];
+            currentFluent.parameters[param] = map[currentParam];
+        }
+        newState.actions[fluent] = currentFluent;
+        
+    }
+    return newState;
+
+}
 
 function makeGraph(domain, problem, state){
-    state = makeFluentsLowerCase(state);
+    var state = makeFluentsLowerCase(state);
+    var newState = unMapFluents(state);
+    console.log('state', newState);
     var graph = [];
     var fluents = getAllFluents(domain);
     var actions = getAllActions(domain);
-    graph = makeFluentNodes(fluents, state);
+    graph = makeFluentNodes(fluents, newState);
     graph = makeActionNodes(actions,graph);
     graph = makeGoalNode(problem, graph);
     // for (node in graph){
@@ -811,9 +850,9 @@ function getUpdatedFluentValue(node, graph){
     var lowestAdder =  Number.POSITIVE_INFINITY;
     //var currentSum = 0;
     for (adder in adders){
-        currentAdder = adders[adder];
+        currentAdder = adders[adder].value;
         //currentSum = getSumOfPreconditions(adder, graph);
-        if (lowestAdder < currentAdder){
+        if (lowestAdder > currentAdder){
             lowestAdder = currentAdder;
         }
     }
@@ -829,22 +868,49 @@ function getSumOfPreconditions(actionNode, graph){
     return sum;
 }
 
+function getMaxPrecondition(actionNode, graph){
+    maxPreconditon = Number.NEGATIVE_INFINITY;
+    for (index in actionNode.preconditionIndices){
+        currentIndex = actionNode.preconditionIndices[index];
+        if(graph[currentIndex].value > maxPreconditon){
+            maxPreconditoon = graph[currentIndex].value;
+        }
+    }
+    return maxPreconditon;
+}
+
 function getAdders(fluentNode, graph){
     adders = [];
-    for (index in fluentNode.effectIndexIndiceses){
-        currentIndex = fluentNode.effectIndices[index];
-        adders.push(graph[currentIndex]);
+    for (node in graph){
+        if (graph[node].type == 'action'){
+            if (graph[node].effectIndices.includes(fluentNode.index)){
+                adders.push(graph[node]);
+                
+            }
+        }
     }
+    
+    // for (index in fluentNode.effectIndexIndiceses){
+    //     currentIndex = fluentNode.effectIndices[index];
+    //     adders.push(graph[currentIndex]);
+    // }
     return adders;
 }
 
-function updateValue(graph, currentNode){
+function updateValue(graph, currentNode, hAdd){
     var update = false;
     if (currentNode.type == 'fluent'){
         updateVal = getUpdatedFluentValue(currentNode, graph);
     }
     else{
-        updateVal= 1 + getSumOfPreconditions(currentNode, graph);
+        if (hAdd){
+            updateVal= 1 + getSumOfPreconditions(currentNode, graph);
+
+        }
+        else{
+            updateVal= 1 + getMaxPrecondition(currentNode, graph);
+        }
+        
     }
     if (updateVal < currentNode.value){
         currentNode.value = updateVal
@@ -862,14 +928,14 @@ function updateValue(graph, currentNode){
     return [graph, update];
 }
 
-function autoUpdate(graph) {
+function autoUpdate(graph, hAdd) {
     var update = true;
     var updateData;
     while (update){
         update = false;
         for(node in graph){
             currentNode = graph[node];
-            updateData = updateValue(graph, currentNode);
+            updateData = updateValue(graph, currentNode, hAdd);
             graph = updateData[0];
             if (updateData[1] == true){
                 update = true;
