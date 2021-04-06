@@ -188,13 +188,10 @@ function expandNode(node) {
 function click(d) {
   if (d3.event.defaultPrevented) return;
 
-<<<<<<< HEAD
     console.log("Clicked node :", d.data.state.actions);
     console.log(d.data.state);
     console.log(StripsManager.applicableActions(dom, d.data.state));
     // console.log("testing getChildren: ", StripsManager.getChildStates(dom, d.data.state));
-=======
->>>>>>> 71e727a525d956fda0dfb48e039e211f5b4839d8
     if(!d.loadedChildren && !d.children) {
         // Load children, expand
         loadData(d);
@@ -442,14 +439,9 @@ function diagonal(s, d) {
 // Formats graph data for a d3-style graph
 function formatGraphData(node, graph) {
     // Makes a graph
-<<<<<<< HEAD
    // var g = makeGraph(dom, prob, node.data.state);
     var g = graph;
     console.log("G:", g);
-=======
-    g = makeGraph(DOMAIN, PROBLEM, node.data.state);
-
->>>>>>> 71e727a525d956fda0dfb48e039e211f5b4839d8
     // Formatting style
     var data = {"nodes":[], "links":[]};
     // Holds the actions
@@ -684,19 +676,13 @@ function startHeuristicViz(node){
 
 
 function loadHeuristicData(node){
-<<<<<<< HEAD
     hAdd = true;
-    processDomain(dom);
-    processProblem(prob);
-    graph = makeGraph(dom, prob, node);
+    processDomain(DOMAIN);
+    processProblem(PROBLEM);
+    graph = makeGraph(DOMAIN, PROBLEM, node);
     graphCopy = graph;
     var heuristic = autoUpdate(graph, hAdd);
     return graphCopy;
-=======
-    processDomain(DOMAIN);
-    processProblem(PROBLEM);
-    var heuristic = autoUpdate(g);
->>>>>>> 71e727a525d956fda0dfb48e039e211f5b4839d8
 }
 
 function processDomain(domain) {
@@ -938,14 +924,7 @@ function getAdders(fluentNode, graph){
     return adders;
 }
 
-<<<<<<< HEAD
 function updateValue(graph, currentNode, hAdd){
-=======
-// Updates a heuristic node
-function updateValue(graph, currentNode){
-    console.log("Called update value with graph: ", graph);
-    console.log("Called update value with currentNode: ", currentNode);
->>>>>>> 71e727a525d956fda0dfb48e039e211f5b4839d8
     var update = false;
     if (currentNode.type == 'fluent'){
         updateVal = getUpdatedFluentValue(currentNode, graph);
