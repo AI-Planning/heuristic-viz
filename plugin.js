@@ -190,7 +190,7 @@ function click(d) {
 
     console.log("Clicked node :", d.data.state.actions);
     console.log(d.data.state);
-    console.log(StripsManager.applicableActions(dom, d.data.state));
+    console.log(StripsManager.applicableActions(DOMAIN, d.data.state));
     // console.log("testing getChildren: ", StripsManager.getChildStates(dom, d.data.state));
     if(!d.loadedChildren && !d.children) {
         // Load children, expand
@@ -830,7 +830,7 @@ function makeGoalNode(problem, graph){
     newNode = {
         'type' : 'action' ,
         'object': 'goal',
-        'value':1,
+        'value':Number.POSITIVE_INFINITY,
         'preconditions': goalState,
         'preconditionIndices': preconditionIndices,
         'effect': null,
