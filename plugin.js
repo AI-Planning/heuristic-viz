@@ -8,35 +8,6 @@ var stateCounter, goal, graph, DOMAIN, PROBLEM;
 
 // Called when you click 'Go' on the file chooser
 function loadStatespace() {
-    // Temp vars
-    var domain = "(define (domain blocksworld)" +
-        "  (:requirements :strips :typing)" +
-        "  (:types block table)" +
-        "  (:action move" +
-        "     :parameters (?b - block ?t1 - table ?t2 - table)" +
-        "     :precondition (and (block ?b) (table ?t1) (table ?t2) (on ?b ?t1) not (on ?b ?t2) (clear ?b))" +
-        "     :effect (and (on ?b ?t2)) (not (on ?b ?t1))))" +
-        "  (:action stack" +
-        "     :parameters (?a - block ?b - block ?t1 - table)" +
-        "     :precondition (and (block ?a) (block ?b) (table ?t1) (clear ?a) (clear ?b) (on ?a ?t1) (on ?b ?t1))" +
-        "     :effect (and (on ?a ?b) not (on ?a ?t1) not (clear ?b))" +
-        "     )" +
-        "  (:action unstack" +
-        "     :parameters (?a - block ?b - block ?t1 - table)" +
-        "     :precondition (and (block ?a) (block ?b) (table ?t1) (on ?b ?t1) (clear ?a) (on ?a ?b))" +
-        "     :effect (and (on ?a ?t1) not (on ?a ?b) (clear ?b))" +
-        "     )" +
-        ")";
-
-    var problem = "(define (problem stack-blocks-a-b-from-tablex-to-ab-tabley)" +
-        "  (:domain blocksworld)" +
-        "  (:objects" +
-        "    a b - block" +
-        "    x y - table)" +
-        "  (:init (and (block a) (block b) (table x) (table y)" +
-        "         (on a x) (on b x) (clear a) (clear b)))" +
-        "  (:goal (and (on a b) (on b y) (clear a) not (clear b)))" +
-        ")";
 
     // Getting string versions of the selected files
     var domText = window.ace.edit($('#domainSelection').find(':selected').val()).getSession().getValue();
@@ -47,7 +18,7 @@ function loadStatespace() {
     $('#plannerURLInput').show();
 
     // This parses the problem and domain text, froreturns from a callback
-    StripsManager.loadFromString(domain, problem, function(d, p) {
+    StripsManager.loadFromString(domText, probText, function(d, p) {
         // Allocating global variables
         DOMAIN = d;
         PROBLEM = p;
@@ -69,7 +40,6 @@ function launchViz(){
       '<p id="hv-output"></p>');
     });
 }
-
 
 // Run when the make tree button is pressed
 // Generates the SVG object, and loads the tree data into a d3 style tree
@@ -449,7 +419,7 @@ function formatGraphData(node, graph) {
 
     // Run through each node in the graph, add to the nodes section of data
     g.forEach(node => {
-        data.nodes.push({"id":node.index, "name":hdescription(node), "type":node.type, "value":node.value, "node":node});
+        data.nodes.push({"id":node.index, "name":hdescription(node), "type":node.type, "value":node.value, "node":node, "preconditions":[]});
         // If the node is an action node, it also defines the links, so store
         // it for the second pass
         if(node.type == "action") {
@@ -465,11 +435,13 @@ function formatGraphData(node, graph) {
             // Generate effects: Effects are nodes that are pointed to by the supplied node
             for(let i = 0; i < action.effectIndices.length; i++) {
                 data.links.push({"source":action.index, "target":action.effectIndices[i]});
+                data.nodes[action.effectIndices[i]].preconditions.push(action.index);
             }
         }
         // Generate preconditions: Preconditions are nodes that point to the supplied node
         for(let i = 0; i < action.preconditionIndices.length; i++) {
             data.links.push({"source":action.preconditionIndices[i], "target":action.index});
+            data.nodes[action.index].preconditions.push(action.preconditionIndices[i]);
         }
     });
 
@@ -479,8 +451,6 @@ function formatGraphData(node, graph) {
 
 // Launches the heuristic visualizer tab, formats data, and initiates the visualization
 function startHeuristicViz(node){
-
-    
     // Make a new tab for the viz
     window.new_tab('Node', function(editor_name){
       console.log("editor_name: "+ editor_name)
@@ -492,29 +462,26 @@ function startHeuristicViz(node){
     graph = loadHeuristicData(node.data.state);
     data = formatGraphData(node, graph);
     
-    console.log(data);
     var color = d3.scaleSequential().domain([0,data.nodes.length-1]).interpolator(d3.interpolateViridis);;
     var Tooltip = d3.select(".tooltip");
 
+    var linkedByID = {};
+    data.links.forEach(d => {
+        linkedByID[d.source.id + "," + d.target.id] = 1;
+    });
+
+    function isConnected(a, b) {
+        return linkedByID[a.id + "," + b.id] || linkedByID[b.id + "," + a.id] || a.id == b.id;
+    }
+
     // Three function that change the tooltip when user hover / move / leave a cell
-    var mouseover = function(d) {
-        Tooltip
-            .style("opacity", 1)
-        d3.select(this)
-            .style("stroke", "black")
-            .style("opacity", 1)
+    var mover = function(d) {
+        var selected = d3.select(this);
+        highlight(selected);
     }
-    var mousemove = function(d) {
-        Tooltip
-            // .html(description(d))
-            .style("left", (d3.event.pageX - 200) + "px")
-            .style("top", (d3.event.pageY - 30) + "px")
-            .style("opacity", .95);
-    }
-    var mouseleave = function(d) {
-        Tooltip
-            .style("opacity", 0)
-        d3.select(this)
+
+    var mleave = function(d) {
+        var selected = d3.select(this)
             .style("stroke", "none")
             .style("opacity", 0.8)
     }
@@ -587,6 +554,8 @@ function startHeuristicViz(node){
             .attr('fixed', true)
             .on("dblclick", dclk)
             .on("click", clk)
+            .on("mouseover", highlight)
+            .on("mouseleave", removeHighlight)
             .call(
                 d3.drag()
                 .on('start', dragstarted)
@@ -650,7 +619,9 @@ function startHeuristicViz(node){
     // Click
     function clk(d) {
         console.log(d);
-        updateValue(g, d.node);
+        // updateValue(g, d.node);
+        console.log("calling update");
+        update(data.links, data.nodes);
     }
 
     // Returns node color based on type / being the goal node
@@ -664,6 +635,21 @@ function startHeuristicViz(node){
         }
     }
 
+    // Highlights node and all of its predecessors
+    function highlight(d) {
+        node.style("stroke", function(o) {
+            // console.log(d, o);
+            if (d.preconditions.includes(o.id) || d.id == o.id) {
+                return 'black';
+            } else {
+                return 'none';
+            }
+        });   
+    }
+
+    function removeHighlight(d) {
+        node.style("stroke", "none");  
+    }
 }
 
 
