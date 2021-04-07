@@ -19,8 +19,6 @@ function loadFiles(domainFile, problemFile){
        // solveStuff(domain, problem);
         console.log('----------------------');
         initialState = problem.states[0];
-        var child = StripsManager.getChildStates(domain, initialState);
-        child = child[1].state
         console.log('Inital State');
         console.log(initialState.actions);
         var graph = makeGraph(domain, problem, child);
@@ -98,18 +96,19 @@ function makeFluentNodes(fluents, state){
         currentFluent = fluents[fluent];
         if (isFluentInState(currentFluent, state)){
             newNode = {'type':'fluent', 'object':currentFluent, 'value':0, 'index':index};
+            fluentNodeList.push(newNode);
         }
         else{
             newNode = {'type':'fluent', 'object':currentFluent, 'value': Number.POSITIVE_INFINITY, 'index':index};
+            fluentNodeList.push(newNode);
         }
-        fluentNodeList.push(newNode);
+        
         index = index + 1
     }
     return fluentNodeList;
 }
 
 function makeActionNodes(actions, graph){
-    actionList = [];
     index = graph.length;
     for (action in actions){
         currentAction = actions[action];
@@ -136,7 +135,7 @@ function makeFluentsLowerCase(fluents){
 }
 function makeGoalNode(problem, graph){
     goalState = makeFluentsLowerCase(problem.states[1].actions);
-    newNode = {'action' : 'goal' , 'value':1, 'preconditions': goalState}
+    newNode = {'type' : 'action' , 'object': 'goal','value':1, 'preconditions': goalState, 'effect': null, 'index': graph.length }
     graph.push(newNode);
     return graph;
     
