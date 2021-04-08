@@ -530,7 +530,7 @@ function startHeuristicViz(node) {
         .enter()
         .append("text")
         .text((d) => d.name + " Value: " + d.value)
-        .attr('dy', -5)
+        .attr('dy', -10)
 
     node = svg.selectAll('.node')
         .data(data.nodes)
@@ -618,7 +618,7 @@ function startHeuristicViz(node) {
     // Returns node color based on type / being the goal node
     function getColor(d) {
         if (d.name == "goal") {
-            return "#f95d6a";
+            return "#ffa600";
         } else if (d.type == "action") {
             return "#ff6361";
         } else {
@@ -628,10 +628,11 @@ function startHeuristicViz(node) {
 
     // Highlights node and all of its predecessors
     function highlight(d) {
+        d3.select(this).style('opacity', 0.75);
         node.style("stroke", function(o) {
             // console.log(d, o);
             if (d.preconditions.includes(o.id) || d.id == o.id) {
-                return '#ffa600';
+                return '#a7440f';
             } else {
                 return 'none';
             }
@@ -640,7 +641,8 @@ function startHeuristicViz(node) {
 
     // Removes black highlight from nodes and their predecessors
     function removeHighlight(d) {
-        node.style("stroke", "none");  
+        node.style("stroke", "none"); 
+        d3.select(this).style('opacity', 1); 
     }
 
     // Updates value of node and reflects the change in the visualization
