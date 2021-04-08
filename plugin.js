@@ -412,9 +412,7 @@ function diagonal(s, d) {
 // Formats graph data for a d3-style graph
 function formatGraphData(node, graph) {
     // Makes a graph
-   // var g = makeGraph(dom, prob, node.data.state);
     var g = graph;
-    console.log("G:", g);
     // Formatting style
     var data = {"nodes":[], "links":[]};
     // Holds the actions
@@ -454,6 +452,7 @@ function formatGraphData(node, graph) {
 
 // Launches the heuristic visualizer tab, formats data, and initiates the visualization
 function startHeuristicViz(node) {
+
     // Make a new tab for the viz
     window.new_tab('Node', function(editor_name){
       console.log("editor_name: "+ editor_name)
@@ -463,31 +462,11 @@ function startHeuristicViz(node) {
 
     // Loading heuristic data from the node
     graph = loadHeuristicData(node.data.state);
+    // Setting data in d3 form
     data = formatGraphData(node, graph);
     
-    var color = d3.scaleSequential().domain([0,data.nodes.length-1]).interpolator(d3.interpolateViridis);;
-    var Tooltip = d3.select(".tooltip");
-
-    var linkedByID = {};
-    data.links.forEach(d => {
-        linkedByID[d.source.id + "," + d.target.id] = 1;
-    });
-
-    function isConnected(a, b) {
-        return linkedByID[a.id + "," + b.id] || linkedByID[b.id + "," + a.id] || a.id == b.id;
-    }
-
-    // Three function that change the tooltip when user hover / move / leave a cell
-    var mover = function(d) {
-        var selected = d3.select(this);
-        highlight(selected);
-    }
-
-    var mleave = function(d) {
-        var selected = d3.select(this)
-            .style("stroke", "none")
-            .style("opacity", 0.8)
-    }
+    // Holds the nodes, the links, and the labels
+    var node, link, text;
 
     // Set the dimensions and margins of the diagram
     var margin = {top: 20, right: 30, bottom: 30, left: 90},
@@ -507,10 +486,8 @@ function startHeuristicViz(node) {
         .append("g")
         .attr("transform","translate(" + margin.left + "," + margin.top + ")");
     
-    var node, link, text;
-
-    svg
-        .append('defs')
+    // Initializing the arrow head for links
+    svg.append('defs')
         .append('marker')
         .attr('id','arrowhead')
         .attr('viewBox', '-0 -5 10 10')
@@ -525,7 +502,7 @@ function startHeuristicViz(node) {
         .attr('fill', '#bc5090')
         .style('stroke','none');
 
-    // Let's list the force we wanna apply on the network
+    // Initializing the force that gets applied to the network
     hSim = d3.forceSimulation(data.nodes)              // Force algorithm is applied to data.nodes
         .force("link", (d3.forceLink()                                // This force provides links between nodes
             .id(function(d, i) { return d.id; })
@@ -536,11 +513,7 @@ function startHeuristicViz(node) {
         .force("center", d3.forceCenter(width / 2, height / 2))      // This force attracts nodes to the center of the svg area
         .on("end", ticked);
 
-    // Draw the graph's links and nodes
-    // update(data.links, data.nodes)
-
-    // Draws the graph with d3
-    // function update(links, nodes) {
+    // Initialize the D3 graph with generated data
     link = svg.selectAll(".link")
         .data(data.links)
         .enter()
@@ -557,7 +530,7 @@ function startHeuristicViz(node) {
         .enter()
         .append("text")
         .text((d) => d.name + " Value: " + d.value)
-        .attr('dx', 3)
+        .attr('dy', -5)
 
     node = svg.selectAll('.node')
         .data(data.nodes)
@@ -584,19 +557,14 @@ function startHeuristicViz(node) {
     node.append('title')
         .text((d) => d.id)
 
-    // node.append('text')
-    //     .attr('dy', -3)
-    //     .text((d) => d.name + " Value: " + d.value)
-
     hSim
         .nodes(data.nodes)
         .on('tick', ticked);
 
     hSim.force('link')
         .links(data.links);
-    // }
     
-    // This function is run at each iteration of the force algorithm, updating the nodes position.
+    // This function is run at each iteration of the force algorithm, updating the node, link, and text positions.
     function ticked() {
         link
             .attr("x1", function(d) { return d.source.x; })
@@ -634,16 +602,8 @@ function startHeuristicViz(node) {
 
     // Click
     function clk(d) {
-        // Update clicked node
-        var result = updateValue(graph, d.node, false);
-
-        // If an update occured
-        if(result[1]) {
-            // Update data variable to reflect the update
-            data.nodes[d.index].value = result[0][d.index].value;
-            // Redraw labels
-            updateLabels();
-        }
+        // Update node on click
+        updateHeuristicNode(d);
     }
 
     // Update node labels to reflect value change
@@ -682,9 +642,23 @@ function startHeuristicViz(node) {
     function removeHighlight(d) {
         node.style("stroke", "none");  
     }
+
+    // Updates value of node and reflects the change in the visualization
+    function updateHeuristicNode(d) {
+        // Update clicked node
+        var result = updateValue(graph, d.node, false);
+
+        // If an update occured
+        if(result[1]) {
+            // Update data variable to reflect the update
+            data.nodes[d.index].value = result[0][d.index].value;
+            // Redraw labels
+            updateLabels();
+        }
+    }
 }
 
-// Pauses force simulation 
+// Pauses force simulation (needs to be a global function due to html buton)
 function freeze() {
     hSim.stop();
 }
