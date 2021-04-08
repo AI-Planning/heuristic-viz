@@ -6,6 +6,9 @@ root, goalState, tooltip, treemap, d3, zoom, viewerWidth, viewerHeight,svgCount=
 // Global Variables
 var stateCounter, goal, graph, DOMAIN, PROBLEM;
 
+// Heuristic globals
+var hSim;
+
 // Called when you click 'Go' on the file chooser
 function loadStatespace() {
 
@@ -450,11 +453,11 @@ function formatGraphData(node, graph) {
 }
 
 // Launches the heuristic visualizer tab, formats data, and initiates the visualization
-function startHeuristicViz(node){
+function startHeuristicViz(node) {
     // Make a new tab for the viz
     window.new_tab('Node', function(editor_name){
       console.log("editor_name: "+ editor_name)
-      $('#' +editor_name).html('<div style = "margin:13px 7px;text-align:center"><h2>Heuristic Visualization</h2><div id="heuristic"></div>');
+      $('#' +editor_name).html('<div style = "margin:13px 7px;text-align:center"><h2>Heuristic Visualization</h2><div id="heuristic"></div><button onclick="freeze()" style="float:right;margin-left:16px" id ="Freeze">Freeze</button>');
       svgID = editor_name;
     });
 
@@ -498,29 +501,32 @@ function startHeuristicViz(node){
         .attr("height", height + margin.top + margin.bottom)
         .style("background-color", "white")
         .style("margin-left", "30px")
+        .call(d3.zoom().on("zoom", function () {
+            svg.attr("transform", d3.event.transform)
+        }))
         .append("g")
         .attr("transform","translate(" + margin.left + "," + margin.top + ")");
     
-    var node, link;
+    var node, link, text;
 
     svg
-    .append('defs')
-    .append('marker')
-    .attr('id','arrowhead')
-    .attr('viewBox', '-0 -5 10 10')
-    .attr('refX', 20)
-    .attr('refY', 0)
-    .attr('orient', 'auto')
-    .attr('markerWidth', 8)
-    .attr('markerHeight', 14)
-    .attr('xoverflow','visible')
-    .append('svg:path')
-    .attr('d', 'M 0,-5 L 10 ,0 L 0,5')
-    .attr('fill', 'green')
-    .style('stroke','none');
+        .append('defs')
+        .append('marker')
+        .attr('id','arrowhead')
+        .attr('viewBox', '-0 -5 10 10')
+        .attr('refX', 20)
+        .attr('refY', 0)
+        .attr('orient', 'auto')
+        .attr('markerWidth', 8)
+        .attr('markerHeight', 14)
+        .attr('xoverflow','visible')
+        .append('svg:path')
+        .attr('d', 'M 0,-5 L 10 ,0 L 0,5')
+        .attr('fill', '#bc5090')
+        .style('stroke','none');
 
     // Let's list the force we wanna apply on the network
-    var simulation = d3.forceSimulation(data.nodes)              // Force algorithm is applied to data.nodes
+    hSim = d3.forceSimulation(data.nodes)              // Force algorithm is applied to data.nodes
         .force("link", (d3.forceLink()                                // This force provides links between nodes
             .id(function(d, i) { return d.id; })
             .distance(200)
@@ -531,57 +537,64 @@ function startHeuristicViz(node){
         .on("end", ticked);
 
     // Draw the graph's links and nodes
-    update(data.links, data.nodes)
+    // update(data.links, data.nodes)
 
     // Draws the graph with d3
-    function update(links, nodes) {
-        link = svg.selectAll(".link")
-            .data(links)
-            .enter()
-            .append("line")
-            .attr("class", "link")
-            .attr("stroke", "#999")
-            .attr("stroke-width", "1px")
-            .attr("marker-end", "url(#arrowhead)")
+    // function update(links, nodes) {
+    link = svg.selectAll(".link")
+        .data(data.links)
+        .enter()
+        .append("line")
+        .attr("class", "link")
+        .attr("stroke", "#999")
+        .attr("stroke-width", "1px")
+        .attr("marker-end", "url(#arrowhead)")
 
-        link.append("title").text(d => d.type);
+    link.append("title").text(d => d.type);
 
-        node = svg.selectAll('.node')
-            .data(nodes)
-            .enter()
-            .append('g')
-            .attr('class', 'node')
-            .attr('fixed', true)
-            .on("dblclick", dclk)
-            .on("click", clk)
-            .on("mouseover", highlight)
-            .on("mouseleave", removeHighlight)
-            .call(
-                d3.drag()
-                .on('start', dragstarted)
-                .on('drag', dragged)
-                .on('end', dragended)
-            );
+    text = svg.selectAll("text")
+        .data(data.nodes)
+        .enter()
+        .append("text")
+        .text((d) => d.name + " Value: " + d.value)
+        .attr('dx', 3)
 
-        node.append('circle')
-            .attr('r', 10)
-            .style('fill', (d,i) => getColor(d))
+    node = svg.selectAll('.node')
+        .data(data.nodes)
+        .enter()
+        .append('g')
+        .attr('class', 'node')
+        .attr('fixed', true)
+        .attr('stroke-width', '2')
+        .on("dblclick", dclk)
+        .on("click", clk)
+        .on("mouseover", highlight)
+        .on("mouseleave", removeHighlight)
+        .call(
+            d3.drag()
+            .on('start', dragstarted)
+            .on('drag', dragged)
+            .on('end', dragended)
+        );
 
-        node.append('title')
-            .text((d) => d.id)
+    node.append('circle')
+        .attr('r', 10)
+        .style('fill', (d,i) => getColor(d))
 
-        node.append('text')
-            .attr('dy', -3)
-            .text((d) => d.name + " Value: " + d.value)
+    node.append('title')
+        .text((d) => d.id)
 
-        simulation
-            .nodes(nodes)
-            .on('tick', ticked);
+    // node.append('text')
+    //     .attr('dy', -3)
+    //     .text((d) => d.name + " Value: " + d.value)
 
-        simulation.force('link')
-            .links(links);
-    }
+    hSim
+        .nodes(data.nodes)
+        .on('tick', ticked);
 
+    hSim.force('link')
+        .links(data.links);
+    // }
     
     // This function is run at each iteration of the force algorithm, updating the nodes position.
     function ticked() {
@@ -593,10 +606,13 @@ function startHeuristicViz(node){
 
         node
             .attr("transform", (d) => "translate(" + d.x + ", " + d.y + ")");            
+    
+        text    
+            .attr("transform", (d) => "translate(" + d.x + ", " + d.y + ")");
     }
 
     function dragstarted(d) {
-        if (!d3.event.active) simulation.alphaTarget(0.3).restart();
+        if (!d3.event.active) hSim.alphaTarget(0.3).restart();
         d.fx = d.x;
         d.fy = d.y;
         d.fixed = false;
@@ -618,20 +634,35 @@ function startHeuristicViz(node){
 
     // Click
     function clk(d) {
-        console.log(d);
-        // updateValue(g, d.node);
-        console.log("calling update");
-        update(data.links, data.nodes);
+        // Update clicked node
+        var result = updateValue(graph, d.node, false);
+
+        // If an update occured
+        if(result[1]) {
+            // Update data variable to reflect the update
+            data.nodes[d.index].value = result[0][d.index].value;
+            // Redraw labels
+            updateLabels();
+        }
+    }
+
+    // Update node labels to reflect value change
+    function updateLabels() {
+        // Updates labels to reflect changes in value 
+        svg.selectAll("text").data(data.nodes)
+            .transition().duration(500)
+            .text((d) => d.name + " Value: " + d.value)
+            .attr('dx', 3)
     }
 
     // Returns node color based on type / being the goal node
     function getColor(d) {
         if (d.name == "goal") {
-            return "yellow";
+            return "#f95d6a";
         } else if (d.type == "action") {
-            return "red";
+            return "#ff6361";
         } else {
-            return "green";
+            return "#003f5c";
         }
     }
 
@@ -640,18 +671,23 @@ function startHeuristicViz(node){
         node.style("stroke", function(o) {
             // console.log(d, o);
             if (d.preconditions.includes(o.id) || d.id == o.id) {
-                return 'black';
+                return '#ffa600';
             } else {
                 return 'none';
             }
         });   
     }
 
+    // Removes black highlight from nodes and their predecessors
     function removeHighlight(d) {
         node.style("stroke", "none");  
     }
 }
 
+// Pauses force simulation 
+function freeze() {
+    hSim.stop();
+}
 
 /*
 --------------------------------------------------------------------------------
@@ -903,10 +939,6 @@ function getAdders(fluentNode, graph){
         }
     }
     
-    // for (index in fluentNode.effectIndexIndiceses){
-    //     currentIndex = fluentNode.effectIndices[index];
-    //     adders.push(graph[currentIndex]);
-    // }
     return adders;
 }
 
