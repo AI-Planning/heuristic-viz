@@ -696,10 +696,10 @@ function solveStuff(domain, problem){
     console.log(solution);
 }
 
-function getAllFluents(domain){
+function getAllFluents(domain, actions){
     var fluents = [];
-    for (action in domain.actions){
-        currentAction = domain.actions[action];
+    for (action in actions){
+        currentAction = actions[action];
         for (var eff in currentAction.effect){
             currentEffect = currentAction.effect[eff];
             if (!(isFluentInState(currentEffect, fluents))){
@@ -716,14 +716,108 @@ function getAllFluents(domain){
     //console.log(fluents);
     return fluents;
 }
+function getApplicableActionInState(action) {
+    // This function returns an applicable concrete action for the given state, or null if the precondition is not satisfied.
+    var resolvedAction = null;
+
+    // Does the filled-in precondition exist in the state test cases?
+    //if (StripsManager.isPreconditionSatisfied(state, action.precondition)) {
+        // This action is applicable.
+        // Assign a value to each parameter of the effect.
+        var populatedEffect = JSON.parse(JSON.stringify(action.effect));
+        for (var m in action.effect) {
+            var effect = action.effect[m];
+
+            for (var n in effect.parameters) {
+                var parameter = effect.parameters[n];
+                var value = action.map[parameter];
+                
+                if (value) {
+                    // Assign this value to all instances of this parameter in the effect.
+                    populatedEffect[m].parameters[n] = value;
+                }
+                else {
+                    StripsManager.output('* ERROR: Value not found for parameter ' + parameter + '.');
+                }
+            }
+        }
+        
+        resolvedAction = JSON.parse(JSON.stringify(action));
+        resolvedAction.effect = populatedEffect;
+        resolvedAction.map = action.map;
+    //}
+    
+    return resolvedAction;
+}
 
 function getAllActions(domain){
-    var actions = [];
-    for (action in domain.actions){
-        actions.push(domain.actions[action]);
+    var result = [];
+
+    if (!domain.values || domain.values.length == 0) {
+        StripsManager.output('ERROR: No parameter values found in domain.values.');
+        return;
     }
-    //console.log(actions);
-    return actions;
+
+    for (var i in domain.actions) {
+        var action = domain.actions[i]; // op1
+        var parameters = action.parameters; // x1, x2, x3
+        var populatedAction = JSON.parse(JSON.stringify(action)); // copy for replacing parameters with actual values.
+        var parameterMapHash = {};
+
+        // Assign values to the parameters for each test case.
+        for (var j in action.parameterCombinations) {
+            var testCase = action.parameterCombinations[j];
+            var nindex = 0;
+            
+            var parameterMap = []; // map of parameter values to be populated
+            // Initialize default parameter values for this action. We'll set concrete values next.
+            for (var j in parameters) {
+                parameterMap[parameters[j].parameter] = testCase[nindex++];
+            }
+
+            // Get the action's precondition parameters.
+            var testCaseIndex = 0;
+            for (var k in action.precondition) {
+                var precondition = action.precondition[k];
+                var populatedPreconditionPart = JSON.parse(JSON.stringify(precondition)); // copy for replacing parameters with actual values.
+                
+                // Found a matching action. So far, so good.
+                var parameterIndex = 0;
+                
+                // Assign a value to each parameter of the precondition.
+                for (var l in precondition.parameters) {
+                    var parameter = precondition.parameters[l];
+                    var value = parameterMap[parameter];
+
+                    // Assign this value to all instances of this parameter in the precondition.
+                    populatedPreconditionPart.parameters[l] = value;
+                }
+                
+                populatedAction.precondition[k] = populatedPreconditionPart;
+                populatedAction.map = parameterMap;
+            }
+
+            // Does the filled-in precondition exist in the test cases?
+            var applicableAction = getApplicableActionInState(populatedAction);
+            if (applicableAction) {
+                // This action is applicable in this state. Make sure we haven't already found this one.
+                var isDuplicate = false;
+                for (var rr in result) {
+                    var action1 = result[rr];
+                    if (StripsManager.isEqual(applicableAction, action1)) {
+                        isDuplicate = true;
+                        break;
+                    }
+                }
+
+                if (!isDuplicate) {
+                    result.push(applicableAction);
+                }
+            }
+        }
+    }
+    console.log('reuslt', result);
+    return result;
 }
 
 function isFluentInState(fluent, fluentSet){
@@ -774,7 +868,7 @@ function makeActionNodes(actions, graph){
         effectIndices = getFluentIndexes(currentAction.effect, graph);
         newNode = {
             'type':'action',
-            'object': currentAction.action,
+            'object': [currentAction.action, currentAction.map],
             'value':Number.POSITIVE_INFINITY,
             'preconditions': currentAction.precondition ,
             'preconditionIndices': preconditionIndices,
@@ -786,6 +880,21 @@ function makeActionNodes(actions, graph){
         index = index + 1;
     }
     return graph;
+}
+
+function getActionIndex(actionObjcet, actionList){
+    for (action in actionList){
+        currentAction = actionList[action];
+        if (currentAction.type == 'action'){
+            if(actionObjcet[0] == currentAction.object[0]){
+                if(JSON.stringify(actionObjcet[1]) == JSON.stringify(currentAction.object[1])){
+                    return action;
+                }
+            }
+        }
+        
+    }
+    return -1;
 }
 function getFluentIndexes(fluentList, graph){
     var indexes = [];
@@ -854,17 +963,24 @@ function unMapFluents(state){
 
 function makeGraph(domain, problem, state){
     var state = makeFluentsLowerCase(state);
-    var newState = unMapFluents(state);
-    console.log('state', newState);
+   // var newState = unMapFluents(state);
+    console.log('state', state);
     var graph = [];
-    var fluents = getAllFluents(domain);
     var actions = getAllActions(domain);
-    graph = makeFluentNodes(fluents, newState);
+    var fluents = getAllFluents(domain, actions);
+    
+    graph = makeFluentNodes(fluents, state);
     graph = makeActionNodes(actions,graph);
     graph = makeGoalNode(problem, graph);
     // for (node in graph){
     //     console.log(graph[node]);
     // }
+    applAct = StripsManager.applicableActions(domain, state);
+    applActObject = [applAct.action, applAct.map];
+    index = getActionIndex(applActObject,graph);
+    
+    console.log('graph', graph);
+    console.log('actionIndex', index);
     return graph;
 }
 
@@ -886,6 +1002,9 @@ function getSumOfPreconditions(actionNode, graph){
     var sum = 0;
     for (index in actionNode.preconditionIndices){
         currentIndex = actionNode.preconditionIndices[index];
+        if (graph[currentIndex].value == Number.POSITIVE_INFINITY){
+            return Number.POSITIVE_INFINITY
+        }
         sum = sum + graph[currentIndex].value;
     }
     return sum;
@@ -896,7 +1015,7 @@ function getMaxPrecondition(actionNode, graph){
     for (index in actionNode.preconditionIndices){
         currentIndex = actionNode.preconditionIndices[index];
         if(graph[currentIndex].value > maxPreconditon){
-            maxPreconditoon = graph[currentIndex].value;
+            maxPreconditon = graph[currentIndex].value;
         }
     }
     return maxPreconditon;
