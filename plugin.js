@@ -977,12 +977,13 @@ function makeGraph(domain, problem, state){
     // for (node in graph){
     //     console.log(graph[node]);
     // }
-    applAct = StripsManager.applicableActions(domain, state);
+    applAct = StripsManager.applicableActions(domain, state)[0];
     applActObject = [applAct.action, applAct.map];
     index = getActionIndex(applActObject,graph);
-    
+    fluentIndexes = getFluentIndexes(state.actions, graph);
     console.log('graph', graph);
     console.log('actionIndex', index);
+    console.log('fluent index', fluentIndexes);
     return graph;
 }
 
