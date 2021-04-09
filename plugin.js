@@ -507,7 +507,7 @@ function startHeuristicViz(node) {
     hSim = d3.forceSimulation(data.nodes)              // Force algorithm is applied to data.nodes
         .force("link", (d3.forceLink()                                // This force provides links between nodes
             .id(function(d, i) { return d.id; })
-            .distance(200)
+            .distance(300)
             .strength(1)                    // This provide  the id of a node                                // and this the list of links
         ))
         .force("charge", d3.forceManyBody().strength(-500))          // This adds repulsion between nodes. Play with the -400 for the repulsion strength
@@ -696,10 +696,13 @@ function startHeuristicViz(node) {
 
         // If an update occured
         if(result[1]) {
+            window.toastr.success("Value updated!");
             // Update data variable to reflect the update
             data.nodes[d.index].value = result[0][d.index].value;
             // Redraw labels
             updateLabels();
+        } else {
+            window.toastr.info("No update occured!");
         }
     }
 
