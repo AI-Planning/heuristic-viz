@@ -261,15 +261,13 @@ function update(source){
         Tooltip
             .html(description(d))
             .style("left", (d3.event.pageX - 400) + "px")
-            .style("top", (d3.event.pageY - 50) + "px")
-            .style("opacity", .95);
+            .style("top", (d3.event.pageY - 50) + "px");
     }
     var mouseleave = function(d) {
         Tooltip
             .style("opacity", 0)
         d3.select(this)
-            .style("stroke", "none")
-            .style("opacity", 0.8)
+            .style("stroke", "none");
     }
 
     // Update the nodes...
@@ -468,7 +466,7 @@ function startHeuristicViz(node) {
     var node, link, text;
 
     // Set the dimensions and margins of the diagram
-    var margin = {top: 20, right: 30, bottom: 30, left: 90},
+    var margin = {top: 20, right: 400, bottom: 30, left: 400},
     // width = 1100 - margin.left - margin.right,
     // width = window.innerWidth - 1000;
     // height = $('#' + svgID).height();
@@ -531,9 +529,18 @@ function startHeuristicViz(node) {
     text = svg.selectAll("text")
         .data(data.nodes)
         .enter()
+        .append("g")
         .append("text")
-        .text((d) => d.name + " Value: " + d.value)
-        .attr('dy', -10)
+        .text((d) => {
+            // if(d.)
+            if(d.type == "fluent" || d.name == "goal") {
+                return d.name + " Value: " + d.value;
+            } else {
+                return getActionName(d.name) + " Value: " + d.value;
+            }
+        })
+        .attr('dy', -18)
+        .attr("text-anchor", "middle");
 
     node = svg.selectAll('.node')
         .data(data.nodes)
@@ -607,6 +614,7 @@ function startHeuristicViz(node) {
     function clk(d) {
         // Update node on click
         updateHeuristicNode(d);
+        console.log(d);
     }
 
     // Update node labels to reflect value change
@@ -639,7 +647,24 @@ function startHeuristicViz(node) {
             } else {
                 return 'none';
             }
-        });  
+        });
+
+        node.style("opacity", function(o) {
+            // console.log(d, o);
+            if (d.preconditions.includes(o.id) || d.id == o.id) {
+                return 1;
+            } else {
+                return 0.5;
+            }
+        });
+        
+        text.style('opacity', function(o) {
+            if (d.preconditions.includes(o.id) || d.id == o.id) {
+                return 1;
+            } else {
+                return 0.5;
+            }
+        });
         
         link
             .style('stroke', function (o) { 
@@ -649,13 +674,7 @@ function startHeuristicViz(node) {
                     return '#b8b8b8';
                 }
             })
-            // .style('stroke-width', function (o) { 
-            //     if(o.source.id == d.id || o.target.id == d.id) {
-            //         return '2';
-            //     } else {
-            //         return '1';
-            //     }
-            // });
+            .style('opacity', 0.5);
     }
 
     // Removes black highlight from nodes and their predecessors
@@ -664,7 +683,10 @@ function startHeuristicViz(node) {
         d3.select(this).style('opacity', 1); 
         link
             .style("stroke", "#999")
-            .style("stroke-width", "1px");
+            .style("stroke-width", "1px")
+            .style('opacity', 1);
+        text.style('opacity', 1);
+        node.style('opacity', 1);
     }
 
     // Updates value of node and reflects the change in the visualization
@@ -680,11 +702,21 @@ function startHeuristicViz(node) {
             updateLabels();
         }
     }
+
 }
 
 // Pauses force simulation (needs to be a global function due to html buton)
 function freeze() {
     hSim.stop();
+}
+
+// Unpacks action name
+function getActionName(name) {
+    var n = name[0] + " ";
+    for(const v in name[1]) {
+        n += v + " ";
+    }
+    return n;
 }
 
 /*
