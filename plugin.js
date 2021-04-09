@@ -42,6 +42,7 @@ function launchViz(){
       '<node circle style ="fill:black;stroke:black;stroke-width:3px;></node circle>' +
       '<p id="hv-output"></p>');
     });
+    makeTree();
 }
 
 // Run when the make tree button is pressed
@@ -452,10 +453,8 @@ function formatGraphData(node, graph) {
 
 // Launches the heuristic visualizer tab, formats data, and initiates the visualization
 function startHeuristicViz(node) {
-
     // Make a new tab for the viz
     window.new_tab('Node', function(editor_name){
-      console.log("editor_name: "+ editor_name)
       $('#' +editor_name).html('<div style = "margin:13px 7px;text-align:center"><h2>Heuristic Visualization</h2><div id="heuristic"></div><button onclick="freeze()" style="float:right;margin-left:16px" id ="Freeze">Freeze</button>');
       svgID = editor_name;
     });
@@ -470,8 +469,11 @@ function startHeuristicViz(node) {
 
     // Set the dimensions and margins of the diagram
     var margin = {top: 20, right: 30, bottom: 30, left: 90},
-    width = 1100 - margin.left - margin.right,
-    height = 700 - margin.top - margin.bottom;
+    // width = 1100 - margin.left - margin.right,
+    // width = window.innerWidth - 1000;
+    // height = $('#' + svgID).height();
+    width = $('#' + svgID).width() - margin.right - margin.left;
+    height = 1000 - margin.top - margin.bottom;
 
     // Init SVG object
     var svg = d3.select('#' + svgID)
@@ -480,6 +482,7 @@ function startHeuristicViz(node) {
         .attr("height", height + margin.top + margin.bottom)
         .style("background-color", "white")
         .style("margin-left", "30px")
+        .on("dblclick.zoom", null)
         .call(d3.zoom().on("zoom", function () {
             svg.attr("transform", d3.event.transform)
         }))
@@ -509,7 +512,7 @@ function startHeuristicViz(node) {
             .distance(200)
             .strength(1)                    // This provide  the id of a node                                // and this the list of links
         ))
-        .force("charge", d3.forceManyBody().strength(-400))          // This adds repulsion between nodes. Play with the -400 for the repulsion strength
+        .force("charge", d3.forceManyBody().strength(-500))          // This adds repulsion between nodes. Play with the -400 for the repulsion strength
         .force("center", d3.forceCenter(width / 2, height / 2))      // This force attracts nodes to the center of the svg area
         .on("end", ticked);
 
@@ -628,7 +631,7 @@ function startHeuristicViz(node) {
 
     // Highlights node and all of its predecessors
     function highlight(d) {
-        d3.select(this).style('opacity', 0.75);
+        d3.select(this).style('opacity', 0.9);
         node.style("stroke", function(o) {
             // console.log(d, o);
             if (d.preconditions.includes(o.id) || d.id == o.id) {
@@ -636,13 +639,32 @@ function startHeuristicViz(node) {
             } else {
                 return 'none';
             }
-        });   
+        });  
+        
+        link
+            .style('stroke', function (o) { 
+                if(o.source.id == d.id || o.target.id == d.id) {
+                    return '#69b3b2';
+                } else {
+                    return '#b8b8b8';
+                }
+            })
+            // .style('stroke-width', function (o) { 
+            //     if(o.source.id == d.id || o.target.id == d.id) {
+            //         return '2';
+            //     } else {
+            //         return '1';
+            //     }
+            // });
     }
 
     // Removes black highlight from nodes and their predecessors
     function removeHighlight(d) {
         node.style("stroke", "none"); 
         d3.select(this).style('opacity', 1); 
+        link
+            .style("stroke", "#999")
+            .style("stroke-width", "1px");
     }
 
     // Updates value of node and reflects the change in the visualization
