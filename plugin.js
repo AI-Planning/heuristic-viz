@@ -1,13 +1,9 @@
-// Global variables
-var tree, svg, diagonal, stateCounter, i, duration, treeData,treeHeight,goTree = true,
-root, goalState, tooltip, treemap, d3, zoom, viewerWidth, viewerHeight,svgCount=1, svgID;
-
-
-// Global Variables
-var stateCounter, goal, graph, DOMAIN, PROBLEM;
+// Tree Globals 
+var stateCounter, goal, graph, DOMAIN, PROBLEM, treemap, tooltip, goalState, tree, svg, diagonal, stateCounter, i, duration, treeData, treeHeight, goTree = true;
+var root, d3, zoom, viewerWidth, viewerHeight;
 
 // Heuristic globals
-var hSim;
+var hSim, svgID, svgCount=1;
 
 // Called when you click 'Go' on the file chooser
 function loadStatespace() {
@@ -20,14 +16,18 @@ function loadStatespace() {
     $('#chooseFilesModal').modal('toggle');
     $('#plannerURLInput').show();
 
-    // This parses the problem and domain text, froreturns from a callback
+    // Parsing and processing the domain & problem
     StripsManager.loadFromString(domText, probText, function(d, p) {
         // Allocating global variables
         DOMAIN = d;
         PROBLEM = p;
+        // Initialize the root
         treeData = {"name":"root", "children":[], "state":p.states[0], "loadedChildren":false};
+        // Keeps track of state numbers to distinguish them easily
         stateCounter = 1;
+        // Setting global goal
         goal = p.states[1];
+        // Launch the tree visualization
         launchViz();
     });
 }
@@ -35,7 +35,6 @@ function loadStatespace() {
 function launchViz(){
     window.new_tab('Viz2.0', function(editor_name){
       $('#' +editor_name).html('<div style = "margin:13px 26px;text-align:center"><h2>Viz</h2>' +
-      '<button onclick="makeTree()" style="float:right;margin-left:16px;margin-right:30px">Make Tree</button>' +
       '<button onclick="zoomIn()" style="float:right;margin-left:16px" id ="ZoomIn">ZoomIn</button>' +
       '<button onclick="zoomOut()" style="float:right;margin-left:16px" id ="ZoomOut">ZoomOut</button>' +
       '<div id="statespace"></div>' +
@@ -45,7 +44,6 @@ function launchViz(){
     makeTree();
 }
 
-// Run when the make tree button is pressed
 // Generates the SVG object, and loads the tree data into a d3 style tree
 function makeTree() {
     // Prevents the creation of more than one tree
@@ -95,12 +93,11 @@ function makeTree() {
         root.x0 = height / 2;
         root.y0 = 0;
 
-        // Collapse after the second level
-
         // Loads children of root
         loadData(root);
+
         // Expands the root node to show loaded children
-        expandNode(root);
+        convertNode(root);
 
         // Display
         update(root);
@@ -120,27 +117,33 @@ function zoomOut(){
   zoom.scaleBy(svg, 1 / 1.3);
 }
 
-// These dynamically load child data
+// Uses Strips.getChildStates to generate children of a supplied node
 function loadData(node) {
     if(!node.loadedChildren) {
       // Node has a 'stripsState' field that contains the corresponding planning state
       const data = StripsManager.getChildStates(DOMAIN, node.data.state);
 
+      // Run through each child
       data.forEach((s) => {
           // Add each item to the node that we want to expands child field
           if(node.data.children) {
-              const newName = "State " + stateCounter;
-              stateCounter += 1;
-              let generatedChild = {"name":newName, "state": s.state,"children":[]}
-              node.data.children.push(generatedChild);
+                // Init data    
+                const newName = "State " + stateCounter;
+                stateCounter += 1;
+                let generatedChild = {"name":newName,"children":[],"state": s.state,"loadedChildren":false};
+                node.data.children.push(generatedChild);
           }
       });
       node.loadedChildren = true;
     }
 }
 
-function expandNode(node) {
+// Converts the node to d3 tree form using d3.hierarchy
+// Initializes other properties
+function convertNode(node) {
+    // Get children of node
     const allChildren = node.data.children;
+    // Var to hold formatted children
     const newHierarchyChildren = [];
 
     allChildren.forEach((child) => {
@@ -160,16 +163,12 @@ function expandNode(node) {
 
 // Toggle children on click.
 function click(d) {
-  if (d3.event.defaultPrevented) return;
+    if (d3.event.defaultPrevented) return;
 
-    console.log("Clicked node :", d.data.state.actions);
-    console.log(d.data.state);
-    console.log(StripsManager.applicableActions(DOMAIN, d.data.state));
-    // console.log("testing getChildren: ", StripsManager.getChildStates(dom, d.data.state));
     if(!d.loadedChildren && !d.children) {
         // Load children, expand
         loadData(d);
-        expandNode(d);
+        convertNode(d);
         d.children = d._children;
         d._children = null;
     }
@@ -453,8 +452,8 @@ function formatGraphData(node, graph) {
 function startHeuristicViz(node) {
     // Make a new tab for the viz
     window.new_tab('Node', function(editor_name){
-      $('#' +editor_name).html('<div style = "margin:13px 7px;text-align:center"><h2>Heuristic Visualization</h2><div id="heuristic"></div><button onclick="freeze()" style="float:right;margin-left:16px" id ="Freeze">Freeze</button>');
-      svgID = editor_name;
+        $('#' +editor_name).html('<div style = "margin:13px 7px;text-align:center"><h2>Heuristic Visualization</h2><div id="heuristic"></div><button onclick="freeze()" style="float:right;margin-left:16px" id ="Freeze">Freeze</button>');
+        svgID = editor_name;
     });
 
     // Loading heuristic data from the node
@@ -668,13 +667,19 @@ function startHeuristicViz(node) {
         
         link
             .style('stroke', function (o) { 
-                if(o.source.id == d.id || o.target.id == d.id) {
+                if(o.target.id == d.id) {
                     return '#69b3b2';
                 } else {
                     return '#b8b8b8';
                 }
             })
-            .style('opacity', 0.5);
+            .style('opacity', function(o) {
+                if(o.target.id == d.id) {
+                    return 1;
+                } else {
+                    return 0.5;
+                }
+            });
     }
 
     // Removes black highlight from nodes and their predecessors
@@ -1167,7 +1172,7 @@ define(function () {
           ref.parentNode.insertBefore(style, ref);
         }
         // Adds menu button that allows for choosing files
-        window.add_menu_button('Viz', 'vizMenuItem', 'glyphicon-signal',"chooseFiles('viz')");
+        window.add_menu_button('Viz', 'vizMenuItem', 'glyphicon-tower',"chooseFiles('viz')");
         window.inject_styles('.viz_display {padding: 20px 0px 0px 40px;}')
 
         // Register this as a user of the file chooser interface
