@@ -827,10 +827,13 @@ function getAllActions(domain){
         var parameters = action.parameters; // x1, x2, x3
         var populatedAction = JSON.parse(JSON.stringify(action)); // copy for replacing parameters with actual values.
         var parameterMapHash = {};
+        
 
+        
         // Assign values to the parameters for each test case.
         for (var j in action.parameterCombinations) {
             var testCase = action.parameterCombinations[j];
+            if(parameters.length == testCase.length){
             var nindex = 0;
             
             var parameterMap = []; // map of parameter values to be populated
@@ -879,6 +882,8 @@ function getAllActions(domain){
                 }
             }
         }
+        }
+    
     }
     console.log('reuslt', result);
     return result;
@@ -899,7 +904,8 @@ function makeFluentNodes(fluents, state){
     var index = 0
     for (fluent in fluents){
         currentFluent = fluents[fluent];
-        if (isFluentInState(currentFluent, state.actions)){
+       // if (isFluentInState(currentFluent, state.actions)){
+        if(StripsManager.isPreconditionSatisfied(state, [currentFluent])){
             newNode = {
                 'type':'fluent', 
                 'object':currentFluent, 
@@ -1036,6 +1042,7 @@ function makeGraph(domain, problem, state){
     graph = makeFluentNodes(fluents, state);
     graph = makeActionNodes(actions,graph);
     graph = makeGoalNode(problem, graph);
+
     // for (node in graph){
     //     console.log(graph[node]);
     // }
@@ -1044,6 +1051,7 @@ function makeGraph(domain, problem, state){
     index = getActionIndex(applActObject,graph);
     fluentIndexes = getFluentIndexes(state.actions, graph);
     console.log('graph', graph);
+    console.log('applicable actions',applActObject);
     console.log('actionIndex', index);
     console.log('fluent index', fluentIndexes);
     return graph;
