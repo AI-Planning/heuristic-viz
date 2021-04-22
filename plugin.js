@@ -383,7 +383,6 @@ function update(source){
         d.x0 = d.x;
         d.y0 = d.y;
     });
-    // centreNode(source);
 }
 
 // Creates a curved (diagonal) path from parent to the child nodes
@@ -466,9 +465,6 @@ function startHeuristicViz(node) {
 
     // Set the dimensions and margins of the diagram
     var margin = {top: 20, right: 400, bottom: 30, left: 400},
-    // width = 1100 - margin.left - margin.right,
-    // width = window.innerWidth - 1000;
-    // height = $('#' + svgID).height();
     width = $('#' + svgID).width() - margin.right - margin.left;
     height = 1000 - margin.top - margin.bottom;
 
@@ -531,7 +527,6 @@ function startHeuristicViz(node) {
         .append("g")
         .append("text")
         .text((d) => {
-            // if(d.)
             if(d.type == "fluent" || d.name == "goal") {
                 return d.name + " Value: " + d.value;
             } else {
@@ -697,7 +692,7 @@ function startHeuristicViz(node) {
     // Updates value of node and reflects the change in the visualization
     function updateHeuristicNode(d) {
         // Update clicked node
-        var result = updateValue(graph, d.node, false);
+        var result = updateValue(graph, d.node, true);
 
         // If an update occured
         if(result[1]) {
@@ -737,8 +732,6 @@ function getActionName(name) {
 
 function loadHeuristicData(node){
     hAdd = true;
-    processDomain(DOMAIN);
-    processProblem(PROBLEM);
     graph = makeGraph(DOMAIN, PROBLEM, node);
     graphCopy = graph;
     var heuristic = autoUpdate(graph, hAdd);
@@ -1043,9 +1036,6 @@ function makeGraph(domain, problem, state){
     graph = makeActionNodes(actions,graph);
     graph = makeGoalNode(problem, graph);
 
-    // for (node in graph){
-    //     console.log(graph[node]);
-    // }
     applAct = StripsManager.applicableActions(domain, state)[0];
     applActObject = [applAct.action, applAct.map];
     index = getActionIndex(applActObject,graph);
@@ -1281,80 +1271,3 @@ function getTreeData(graph, layerIndex) {
 
     return treeData;
 }
-
-// Commented out functions:
-
-// var viewerWidth = $(document).width();
-// var viewerHeight = $(document).height();
-
-//
-// function centreNode(source){
-//   var scale = zoom.scaleTo();
-//   var x = -source.y0 * scale + viewerWidth/2;
-//   var y = -source.x0 * scale + viewerHeight/2;
-//   d3.select('g').transition()
-//     .duration(duration)
-//     .attr("transform", "translate(" + x + "," + y + ")scale(" + scale + ")");
-//   zoom.scaleTo(scale);
-//   zoomListener.translate([x, y]);
-// // }
-
-// function centreNode(source){
-//    var t = d3.event.transform;
-//    console.log(t);
-//
-//    x =  t.x;
-//    y = source.x0;
-//
-//    y = -y *t.k + viewerHeight / 2;
-//
-//    g.transition()
-//     .duration(duration)
-//     .attr("transform", "translate(" + x + "," + y + ")scale(" + t.k + ")")
-//     .on("end", function(){ zoomer.call(zoom.transform, d3.zoomIdentity.translate(x,y).scale(t.k))});
-// }
-//
-function zoomed() {
-      svg.attr("transform", d3.event.transform);
-      /*
-      // this is intended to start the zoom at center where the current node is
-      var transform = d3.event.transform,
-          point = transform.invert(center);
-          console.log("point",point, "focus", focus)
-      transform = transform.translate(point[0] - focus[0], point[1] - focus[1]);
-      svg.attr("transform", transform);
-      */
-     }
-//
-// // Part of nodeEnter:
-// // .on('dblclick',function(e){
-//       //   window.new_tab('Node', function(editor_name){
-      //     $('#' +editor_name).html('<div style = "margin:13px 26px"><h2>Viz</h2>')
-      //     // '<p id="hv-output"></p>')
-      //   })
-      // });
-
-      //   window.new_tab('Node Tab', function(editor_name){
-      //     $('#' +editor_name).html('<div style = "margin:13px 26px"><h2>Viz</h2>' +
-      //     '<button onclick="makeTree()" style="float:right;margin-left:16px">makeTree</button>' +
-      //
-      // });
-
-
-    /*
-
-    I'm not sure what this svg select does: commented it out for now and it still works - Cam
-
-    */
-
-    // svg = d3.select("#svg-container").append("svg")
-    //     // .attr("width","100%")
-    //     // .attr("height", "100%")
-    //     .attr("width",viewerWidth)
-    //     .attr("height",viewerHeight)
-    //     .attr("preserveAspectRatio", "xMinYMid meet")
-    //     .attr("display", "block")
-
-    // var svg_container = $("#svg-container");
-    // viewerWidth = svg_container.width();
-    // viewerHeight = svg_container.height();
