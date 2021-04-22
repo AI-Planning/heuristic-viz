@@ -1,42 +1,12 @@
-// Global variables
-var tree, svg, diagonal, stateCounter, i, duration, treeData,treeHeight,goTree = true,
-root, goalState, tooltip, treemap, d3, zoom, viewerWidth, viewerHeight,svgCount=1, svgID;
+// Tree Globals 
+var stateCounter, goal, graph, DOMAIN, PROBLEM, treemap, tooltip, goalState, tree, svg, diagonal, stateCounter, i, duration, treeData, treeHeight, goTree = true;
+var root, d3, zoom, viewerWidth, viewerHeight;
 
-
-// Global Variables
-var stateCounter, goal, graph, DOMAIN, PROBLEM;
+// Heuristic globals
+var hSim, svgID, svgCount=1;
 
 // Called when you click 'Go' on the file chooser
 function loadStatespace() {
-    // Temp vars
-    var domain = "(define (domain blocksworld)" +
-        "  (:requirements :strips :typing)" +
-        "  (:types block table)" +
-        "  (:action move" +
-        "     :parameters (?b - block ?t1 - table ?t2 - table)" +
-        "     :precondition (and (block ?b) (table ?t1) (table ?t2) (on ?b ?t1) not (on ?b ?t2) (clear ?b))" +
-        "     :effect (and (on ?b ?t2)) (not (on ?b ?t1))))" +
-        "  (:action stack" +
-        "     :parameters (?a - block ?b - block ?t1 - table)" +
-        "     :precondition (and (block ?a) (block ?b) (table ?t1) (clear ?a) (clear ?b) (on ?a ?t1) (on ?b ?t1))" +
-        "     :effect (and (on ?a ?b) not (on ?a ?t1) not (clear ?b))" +
-        "     )" +
-        "  (:action unstack" +
-        "     :parameters (?a - block ?b - block ?t1 - table)" +
-        "     :precondition (and (block ?a) (block ?b) (table ?t1) (on ?b ?t1) (clear ?a) (on ?a ?b))" +
-        "     :effect (and (on ?a ?t1) not (on ?a ?b) (clear ?b))" +
-        "     )" +
-        ")";
-
-    var problem = "(define (problem stack-blocks-a-b-from-tablex-to-ab-tabley)" +
-        "  (:domain blocksworld)" +
-        "  (:objects" +
-        "    a b - block" +
-        "    x y - table)" +
-        "  (:init (and (block a) (block b) (table x) (table y)" +
-        "         (on a x) (on b x) (clear a) (clear b)))" +
-        "  (:goal (and (on a b) (on b y) (clear a) not (clear b)))" +
-        ")";
 
     // Getting string versions of the selected files
     var domText = window.ace.edit($('#domainSelection').find(':selected').val()).getSession().getValue();
@@ -46,14 +16,18 @@ function loadStatespace() {
     $('#chooseFilesModal').modal('toggle');
     $('#plannerURLInput').show();
 
-    // This parses the problem and domain text, froreturns from a callback
-    StripsManager.loadFromString(domain, problem, function(d, p) {
+    // Parsing and processing the domain & problem
+    StripsManager.loadFromString(domText, probText, function(d, p) {
         // Allocating global variables
         DOMAIN = d;
         PROBLEM = p;
+        // Initialize the root
         treeData = {"name":"root", "children":[], "state":p.states[0], "loadedChildren":false};
+        // Keeps track of state numbers to distinguish them easily
         stateCounter = 1;
+        // Setting global goal
         goal = p.states[1];
+        // Launch the tree visualization
         launchViz();
     });
 }
@@ -61,17 +35,15 @@ function loadStatespace() {
 function launchViz(){
     window.new_tab('Viz2.0', function(editor_name){
       $('#' +editor_name).html('<div style = "margin:13px 26px;text-align:center"><h2>Viz</h2>' +
-      '<button onclick="makeTree()" style="float:right;margin-left:16px;margin-right:30px">Make Tree</button>' +
       '<button onclick="zoomIn()" style="float:right;margin-left:16px" id ="ZoomIn">ZoomIn</button>' +
       '<button onclick="zoomOut()" style="float:right;margin-left:16px" id ="ZoomOut">ZoomOut</button>' +
       '<div id="statespace"></div>' +
       '<node circle style ="fill:black;stroke:black;stroke-width:3px;></node circle>' +
       '<p id="hv-output"></p>');
     });
+    makeTree();
 }
 
-
-// Run when the make tree button is pressed
 // Generates the SVG object, and loads the tree data into a d3 style tree
 function makeTree() {
     // Prevents the creation of more than one tree
@@ -121,12 +93,11 @@ function makeTree() {
         root.x0 = height / 2;
         root.y0 = 0;
 
-        // Collapse after the second level
-
         // Loads children of root
         loadData(root);
+
         // Expands the root node to show loaded children
-        expandNode(root);
+        convertNode(root);
 
         // Display
         update(root);
@@ -146,27 +117,33 @@ function zoomOut(){
   zoom.scaleBy(svg, 1 / 1.3);
 }
 
-// These dynamically load child data
+// Uses Strips.getChildStates to generate children of a supplied node
 function loadData(node) {
     if(!node.loadedChildren) {
       // Node has a 'stripsState' field that contains the corresponding planning state
       const data = StripsManager.getChildStates(DOMAIN, node.data.state);
 
+      // Run through each child
       data.forEach((s) => {
           // Add each item to the node that we want to expands child field
           if(node.data.children) {
-              const newName = "State " + stateCounter;
-              stateCounter += 1;
-              let generatedChild = {"name":newName, "state": s.state,"children":[]}
-              node.data.children.push(generatedChild);
+                // Init data    
+                const newName = "State " + stateCounter;
+                stateCounter += 1;
+                let generatedChild = {"name":newName,"children":[],"state": s.state,"loadedChildren":false};
+                node.data.children.push(generatedChild);
           }
       });
       node.loadedChildren = true;
     }
 }
 
-function expandNode(node) {
+// Converts the node to d3 tree form using d3.hierarchy
+// Initializes other properties
+function convertNode(node) {
+    // Get children of node
     const allChildren = node.data.children;
+    // Var to hold formatted children
     const newHierarchyChildren = [];
 
     allChildren.forEach((child) => {
@@ -186,16 +163,12 @@ function expandNode(node) {
 
 // Toggle children on click.
 function click(d) {
-  if (d3.event.defaultPrevented) return;
+    if (d3.event.defaultPrevented) return;
 
-    console.log("Clicked node :", d.data.state.actions);
-    console.log(d.data.state);
-    console.log(StripsManager.applicableActions(DOMAIN, d.data.state));
-    // console.log("testing getChildren: ", StripsManager.getChildStates(dom, d.data.state));
     if(!d.loadedChildren && !d.children) {
         // Load children, expand
         loadData(d);
-        expandNode(d);
+        convertNode(d);
         d.children = d._children;
         d._children = null;
     }
@@ -287,15 +260,13 @@ function update(source){
         Tooltip
             .html(description(d))
             .style("left", (d3.event.pageX - 400) + "px")
-            .style("top", (d3.event.pageY - 50) + "px")
-            .style("opacity", .95);
+            .style("top", (d3.event.pageY - 50) + "px");
     }
     var mouseleave = function(d) {
         Tooltip
             .style("opacity", 0)
         d3.select(this)
-            .style("stroke", "none")
-            .style("opacity", 0.8)
+            .style("stroke", "none");
     }
 
     // Update the nodes...
@@ -412,7 +383,6 @@ function update(source){
         d.x0 = d.x;
         d.y0 = d.y;
     });
-    // centreNode(source);
 }
 
 // Creates a curved (diagonal) path from parent to the child nodes
@@ -439,9 +409,7 @@ function diagonal(s, d) {
 // Formats graph data for a d3-style graph
 function formatGraphData(node, graph) {
     // Makes a graph
-   // var g = makeGraph(dom, prob, node.data.state);
     var g = graph;
-    console.log("G:", g);
     // Formatting style
     var data = {"nodes":[], "links":[]};
     // Holds the actions
@@ -449,7 +417,7 @@ function formatGraphData(node, graph) {
 
     // Run through each node in the graph, add to the nodes section of data
     g.forEach(node => {
-        data.nodes.push({"id":node.index, "name":hdescription(node), "type":node.type, "value":node.value, "node":node});
+        data.nodes.push({"id":node.index, "name":hdescription(node), "type":node.type, "value":node.value, "node":node, "preconditions":[]});
         // If the node is an action node, it also defines the links, so store
         // it for the second pass
         if(node.type == "action") {
@@ -465,11 +433,13 @@ function formatGraphData(node, graph) {
             // Generate effects: Effects are nodes that are pointed to by the supplied node
             for(let i = 0; i < action.effectIndices.length; i++) {
                 data.links.push({"source":action.index, "target":action.effectIndices[i]});
+                data.nodes[action.effectIndices[i]].preconditions.push(action.index);
             }
         }
         // Generate preconditions: Preconditions are nodes that point to the supplied node
         for(let i = 0; i < action.preconditionIndices.length; i++) {
             data.links.push({"source":action.preconditionIndices[i], "target":action.index});
+            data.nodes[action.index].preconditions.push(action.preconditionIndices[i]);
         }
     });
 
@@ -478,51 +448,25 @@ function formatGraphData(node, graph) {
 }
 
 // Launches the heuristic visualizer tab, formats data, and initiates the visualization
-function startHeuristicViz(node){
-
-    
+function startHeuristicViz(node) {
     // Make a new tab for the viz
     window.new_tab('Node', function(editor_name){
-      console.log("editor_name: "+ editor_name)
-      $('#' +editor_name).html('<div style = "margin:13px 7px;text-align:center"><h2>Heuristic Visualization</h2><div id="heuristic"></div>');
-      svgID = editor_name;
+        $('#' +editor_name).html('<div style = "margin:13px 7px;text-align:center"><h2>Heuristic Visualization</h2><div id="heuristic"></div><button onclick="freeze()" style="float:right;margin-left:16px" id ="Freeze">Freeze</button>');
+        svgID = editor_name;
     });
 
     // Loading heuristic data from the node
     graph = loadHeuristicData(node.data.state);
+    // Setting data in d3 form
     data = formatGraphData(node, graph);
     
-    console.log(data);
-    var color = d3.scaleSequential().domain([0,data.nodes.length-1]).interpolator(d3.interpolateViridis);;
-    var Tooltip = d3.select(".tooltip");
-
-    // Three function that change the tooltip when user hover / move / leave a cell
-    var mouseover = function(d) {
-        Tooltip
-            .style("opacity", 1)
-        d3.select(this)
-            .style("stroke", "black")
-            .style("opacity", 1)
-    }
-    var mousemove = function(d) {
-        Tooltip
-            // .html(description(d))
-            .style("left", (d3.event.pageX - 200) + "px")
-            .style("top", (d3.event.pageY - 30) + "px")
-            .style("opacity", .95);
-    }
-    var mouseleave = function(d) {
-        Tooltip
-            .style("opacity", 0)
-        d3.select(this)
-            .style("stroke", "none")
-            .style("opacity", 0.8)
-    }
+    // Holds the nodes, the links, and the labels
+    var node, link, text;
 
     // Set the dimensions and margins of the diagram
-    var margin = {top: 20, right: 30, bottom: 30, left: 90},
-    width = 1100 - margin.left - margin.right,
-    height = 700 - margin.top - margin.bottom;
+    var margin = {top: 20, right: 400, bottom: 30, left: 400},
+    width = $('#' + svgID).width() - margin.right - margin.left;
+    height = 1000 - margin.top - margin.bottom;
 
     // Init SVG object
     var svg = d3.select('#' + svgID)
@@ -531,90 +475,100 @@ function startHeuristicViz(node){
         .attr("height", height + margin.top + margin.bottom)
         .style("background-color", "white")
         .style("margin-left", "30px")
+        .on("dblclick.zoom", null)
+        .call(d3.zoom().on("zoom", function () {
+            svg.attr("transform", d3.event.transform)
+        }))
         .append("g")
         .attr("transform","translate(" + margin.left + "," + margin.top + ")");
     
-    var node, link;
+    // Initializing the arrow head for links
+    svg.append('defs')
+        .append('marker')
+        .attr('id','arrowhead')
+        .attr('viewBox', '-0 -5 10 10')
+        .attr('refX', 20)
+        .attr('refY', 0)
+        .attr('orient', 'auto')
+        .attr('markerWidth', 8)
+        .attr('markerHeight', 14)
+        .attr('xoverflow','visible')
+        .append('svg:path')
+        .attr('d', 'M 0,-5 L 10 ,0 L 0,5')
+        .attr('fill', '#bc5090')
+        .style('stroke','none');
 
-    svg
-    .append('defs')
-    .append('marker')
-    .attr('id','arrowhead')
-    .attr('viewBox', '-0 -5 10 10')
-    .attr('refX', 20)
-    .attr('refY', 0)
-    .attr('orient', 'auto')
-    .attr('markerWidth', 8)
-    .attr('markerHeight', 14)
-    .attr('xoverflow','visible')
-    .append('svg:path')
-    .attr('d', 'M 0,-5 L 10 ,0 L 0,5')
-    .attr('fill', 'green')
-    .style('stroke','none');
-
-    // Let's list the force we wanna apply on the network
-    var simulation = d3.forceSimulation(data.nodes)              // Force algorithm is applied to data.nodes
+    // Initializing the force that gets applied to the network
+    hSim = d3.forceSimulation(data.nodes)              // Force algorithm is applied to data.nodes
         .force("link", (d3.forceLink()                                // This force provides links between nodes
             .id(function(d, i) { return d.id; })
-            .distance(200)
+            .distance(300)
             .strength(1)                    // This provide  the id of a node                                // and this the list of links
         ))
-        .force("charge", d3.forceManyBody().strength(-400))          // This adds repulsion between nodes. Play with the -400 for the repulsion strength
+        .force("charge", d3.forceManyBody().strength(-500))          // This adds repulsion between nodes. Play with the -400 for the repulsion strength
         .force("center", d3.forceCenter(width / 2, height / 2))      // This force attracts nodes to the center of the svg area
         .on("end", ticked);
 
-    // Draw the graph's links and nodes
-    update(data.links, data.nodes)
+    // Initialize the D3 graph with generated data
+    link = svg.selectAll(".link")
+        .data(data.links)
+        .enter()
+        .append("line")
+        .attr("class", "link")
+        .attr("stroke", "#999")
+        .attr("stroke-width", "1px")
+        .attr("marker-end", "url(#arrowhead)")
 
-    // Draws the graph with d3
-    function update(links, nodes) {
-        link = svg.selectAll(".link")
-            .data(links)
-            .enter()
-            .append("line")
-            .attr("class", "link")
-            .attr("stroke", "#999")
-            .attr("stroke-width", "1px")
-            .attr("marker-end", "url(#arrowhead)")
+    link.append("title").text(d => d.type);
 
-        link.append("title").text(d => d.type);
+    text = svg.selectAll("text")
+        .data(data.nodes)
+        .enter()
+        .append("g")
+        .append("text")
+        .text((d) => {
+            if(d.type == "fluent" || d.name == "goal") {
+                return d.name + " Value: " + d.value;
+            } else {
+                return getActionName(d.name) + " Value: " + d.value;
+            }
+        })
+        .attr('dy', -18)
+        .attr("text-anchor", "middle");
 
-        node = svg.selectAll('.node')
-            .data(nodes)
-            .enter()
-            .append('g')
-            .attr('class', 'node')
-            .attr('fixed', true)
-            .on("dblclick", dclk)
-            .on("click", clk)
-            .call(
-                d3.drag()
-                .on('start', dragstarted)
-                .on('drag', dragged)
-                .on('end', dragended)
-            );
+    node = svg.selectAll('.node')
+        .data(data.nodes)
+        .enter()
+        .append('g')
+        .attr('class', 'node')
+        .attr('fixed', true)
+        .attr('stroke-width', '2')
+        .on("dblclick", dclk)
+        .on("click", clk)
+        .on("mouseover", highlight)
+        .on("mouseleave", removeHighlight)
+        .call(
+            d3.drag()
+            .on('start', dragstarted)
+            .on('drag', dragged)
+            .on('end', dragended)
+        );
 
-        node.append('circle')
-            .attr('r', 10)
-            .style('fill', (d,i) => getColor(d))
+    node.append('circle')
+        .attr('r', 10)
+        .style('fill', (d,i) => getColor(d))
 
-        node.append('title')
-            .text((d) => d.id)
+    node.append('title')
+        .text((d) => d.id)
 
-        node.append('text')
-            .attr('dy', -3)
-            .text((d) => d.name + " Value: " + d.value)
+    hSim
+        .nodes(data.nodes)
+        .on('tick', ticked);
 
-        simulation
-            .nodes(nodes)
-            .on('tick', ticked);
-
-        simulation.force('link')
-            .links(links);
-    }
-
+    hSim.force('link')
+        .links(data.links);
     
-    // This function is run at each iteration of the force algorithm, updating the nodes position.
+    // This function is run at each iteration of the force algorithm, updating the node, link, and text positions.
     function ticked() {
         link
             .attr("x1", function(d) { return d.source.x; })
@@ -624,10 +578,13 @@ function startHeuristicViz(node){
 
         node
             .attr("transform", (d) => "translate(" + d.x + ", " + d.y + ")");            
+    
+        text    
+            .attr("transform", (d) => "translate(" + d.x + ", " + d.y + ")");
     }
 
     function dragstarted(d) {
-        if (!d3.event.active) simulation.alphaTarget(0.3).restart();
+        if (!d3.event.active) hSim.alphaTarget(0.3).restart();
         d.fx = d.x;
         d.fy = d.y;
         d.fixed = false;
@@ -649,23 +606,121 @@ function startHeuristicViz(node){
 
     // Click
     function clk(d) {
+        // Update node on click
+        updateHeuristicNode(d);
         console.log(d);
-        updateValue(g, d.node);
+    }
+
+    // Update node labels to reflect value change
+    function updateLabels() {
+        // Updates labels to reflect changes in value 
+        svg.selectAll("text").data(data.nodes)
+            .transition().duration(500)
+            .text((d) => d.name + " Value: " + d.value)
+            .attr('dx', 3)
     }
 
     // Returns node color based on type / being the goal node
     function getColor(d) {
         if (d.name == "goal") {
-            return "yellow";
+            return "#ffa600";
         } else if (d.type == "action") {
-            return "red";
+            return "#ff6361";
         } else {
-            return "green";
+            return "#003f5c";
+        }
+    }
+
+    // Highlights node and all of its predecessors
+    function highlight(d) {
+        d3.select(this).style('opacity', 0.9);
+        node.style("stroke", function(o) {
+            // console.log(d, o);
+            if (d.preconditions.includes(o.id) || d.id == o.id) {
+                return '#a7440f';
+            } else {
+                return 'none';
+            }
+        });
+
+        node.style("opacity", function(o) {
+            // console.log(d, o);
+            if (d.preconditions.includes(o.id) || d.id == o.id) {
+                return 1;
+            } else {
+                return 0.5;
+            }
+        });
+        
+        text.style('opacity', function(o) {
+            if (d.preconditions.includes(o.id) || d.id == o.id) {
+                return 1;
+            } else {
+                return 0.5;
+            }
+        });
+        
+        link
+            .style('stroke', function (o) { 
+                if(o.target.id == d.id) {
+                    return '#69b3b2';
+                } else {
+                    return '#b8b8b8';
+                }
+            })
+            .style('opacity', function(o) {
+                if(o.target.id == d.id) {
+                    return 1;
+                } else {
+                    return 0.5;
+                }
+            });
+    }
+
+    // Removes black highlight from nodes and their predecessors
+    function removeHighlight(d) {
+        node.style("stroke", "none"); 
+        d3.select(this).style('opacity', 1); 
+        link
+            .style("stroke", "#999")
+            .style("stroke-width", "1px")
+            .style('opacity', 1);
+        text.style('opacity', 1);
+        node.style('opacity', 1);
+    }
+
+    // Updates value of node and reflects the change in the visualization
+    function updateHeuristicNode(d) {
+        // Update clicked node
+        var result = updateValue(graph, d.node, true);
+
+        // If an update occured
+        if(result[1]) {
+            window.toastr.success("Value updated!");
+            // Update data variable to reflect the update
+            data.nodes[d.index].value = result[0][d.index].value;
+            // Redraw labels
+            updateLabels();
+        } else {
+            window.toastr.info("No update occured!");
         }
     }
 
 }
 
+// Pauses force simulation (needs to be a global function due to html buton)
+function freeze() {
+    hSim.stop();
+}
+
+// Unpacks action name
+function getActionName(name) {
+    var n = name[0] + " ";
+    for(const v in name[1]) {
+        n += v + " ";
+    }
+    return n;
+}
 
 /*
 --------------------------------------------------------------------------------
@@ -677,8 +732,6 @@ function startHeuristicViz(node){
 
 function loadHeuristicData(node){
     hAdd = true;
-    processDomain(DOMAIN);
-    processProblem(PROBLEM);
     graph = makeGraph(DOMAIN, PROBLEM, node);
     graphCopy = graph;
     var heuristic = autoUpdate(graph, hAdd);
@@ -700,10 +753,10 @@ function solveStuff(domain, problem){
     console.log(solution);
 }
 
-function getAllFluents(domain){
+function getAllFluents(domain, actions){
     var fluents = [];
-    for (action in domain.actions){
-        currentAction = domain.actions[action];
+    for (action in actions){
+        currentAction = actions[action];
         for (var eff in currentAction.effect){
             currentEffect = currentAction.effect[eff];
             if (!(isFluentInState(currentEffect, fluents))){
@@ -720,14 +773,113 @@ function getAllFluents(domain){
     //console.log(fluents);
     return fluents;
 }
+function getApplicableActionInState(action) {
+    // This function returns an applicable concrete action for the given state, or null if the precondition is not satisfied.
+    var resolvedAction = null;
+
+    // Does the filled-in precondition exist in the state test cases?
+    //if (StripsManager.isPreconditionSatisfied(state, action.precondition)) {
+        // This action is applicable.
+        // Assign a value to each parameter of the effect.
+        var populatedEffect = JSON.parse(JSON.stringify(action.effect));
+        for (var m in action.effect) {
+            var effect = action.effect[m];
+
+            for (var n in effect.parameters) {
+                var parameter = effect.parameters[n];
+                var value = action.map[parameter];
+                
+                if (value) {
+                    // Assign this value to all instances of this parameter in the effect.
+                    populatedEffect[m].parameters[n] = value;
+                }
+                else {
+                    StripsManager.output('* ERROR: Value not found for parameter ' + parameter + '.');
+                }
+            }
+        }
+        
+        resolvedAction = JSON.parse(JSON.stringify(action));
+        resolvedAction.effect = populatedEffect;
+        resolvedAction.map = action.map;
+    //}
+    
+    return resolvedAction;
+}
 
 function getAllActions(domain){
-    var actions = [];
-    for (action in domain.actions){
-        actions.push(domain.actions[action]);
+    var result = [];
+
+    if (!domain.values || domain.values.length == 0) {
+        StripsManager.output('ERROR: No parameter values found in domain.values.');
+        return;
     }
-    //console.log(actions);
-    return actions;
+
+    for (var i in domain.actions) {
+        var action = domain.actions[i]; // op1
+        var parameters = action.parameters; // x1, x2, x3
+        var populatedAction = JSON.parse(JSON.stringify(action)); // copy for replacing parameters with actual values.
+        var parameterMapHash = {};
+        
+
+        
+        // Assign values to the parameters for each test case.
+        for (var j in action.parameterCombinations) {
+            var testCase = action.parameterCombinations[j];
+            if(parameters.length == testCase.length){
+            var nindex = 0;
+            
+            var parameterMap = []; // map of parameter values to be populated
+            // Initialize default parameter values for this action. We'll set concrete values next.
+            for (var j in parameters) {
+                parameterMap[parameters[j].parameter] = testCase[nindex++];
+            }
+
+            // Get the action's precondition parameters.
+            var testCaseIndex = 0;
+            for (var k in action.precondition) {
+                var precondition = action.precondition[k];
+                var populatedPreconditionPart = JSON.parse(JSON.stringify(precondition)); // copy for replacing parameters with actual values.
+                
+                // Found a matching action. So far, so good.
+                var parameterIndex = 0;
+                
+                // Assign a value to each parameter of the precondition.
+                for (var l in precondition.parameters) {
+                    var parameter = precondition.parameters[l];
+                    var value = parameterMap[parameter];
+
+                    // Assign this value to all instances of this parameter in the precondition.
+                    populatedPreconditionPart.parameters[l] = value;
+                }
+                
+                populatedAction.precondition[k] = populatedPreconditionPart;
+                populatedAction.map = parameterMap;
+            }
+
+            // Does the filled-in precondition exist in the test cases?
+            var applicableAction = getApplicableActionInState(populatedAction);
+            if (applicableAction) {
+                // This action is applicable in this state. Make sure we haven't already found this one.
+                var isDuplicate = false;
+                for (var rr in result) {
+                    var action1 = result[rr];
+                    if (StripsManager.isEqual(applicableAction, action1)) {
+                        isDuplicate = true;
+                        break;
+                    }
+                }
+
+                if (!isDuplicate) {
+                    result.push(applicableAction);
+                }
+            }
+        }
+        }
+    
+    }
+    console.log('reuslt', result);
+    return result;
 }
 
 function isFluentInState(fluent, fluentSet){
@@ -745,7 +897,8 @@ function makeFluentNodes(fluents, state){
     var index = 0
     for (fluent in fluents){
         currentFluent = fluents[fluent];
-        if (isFluentInState(currentFluent, state.actions)){
+       // if (isFluentInState(currentFluent, state.actions)){
+        if(StripsManager.isPreconditionSatisfied(state, [currentFluent])){
             newNode = {
                 'type':'fluent', 
                 'object':currentFluent, 
@@ -778,7 +931,7 @@ function makeActionNodes(actions, graph){
         effectIndices = getFluentIndexes(currentAction.effect, graph);
         newNode = {
             'type':'action',
-            'object': currentAction.action,
+            'object': [currentAction.action, currentAction.map],
             'value':Number.POSITIVE_INFINITY,
             'preconditions': currentAction.precondition ,
             'preconditionIndices': preconditionIndices,
@@ -790,6 +943,21 @@ function makeActionNodes(actions, graph){
         index = index + 1;
     }
     return graph;
+}
+
+function getActionIndex(actionObjcet, actionList){
+    for (action in actionList){
+        currentAction = actionList[action];
+        if (currentAction.type == 'action'){
+            if(actionObjcet[0] == currentAction.object[0]){
+                if(JSON.stringify(actionObjcet[1]) == JSON.stringify(currentAction.object[1])){
+                    return action;
+                }
+            }
+        }
+        
+    }
+    return -1;
 }
 function getFluentIndexes(fluentList, graph){
     var indexes = [];
@@ -858,17 +1026,24 @@ function unMapFluents(state){
 
 function makeGraph(domain, problem, state){
     var state = makeFluentsLowerCase(state);
-    var newState = unMapFluents(state);
-    console.log('state', newState);
+   // var newState = unMapFluents(state);
+    console.log('state', state);
     var graph = [];
-    var fluents = getAllFluents(domain);
     var actions = getAllActions(domain);
-    graph = makeFluentNodes(fluents, newState);
+    var fluents = getAllFluents(domain, actions);
+    
+    graph = makeFluentNodes(fluents, state);
     graph = makeActionNodes(actions,graph);
     graph = makeGoalNode(problem, graph);
-    // for (node in graph){
-    //     console.log(graph[node]);
-    // }
+
+    applAct = StripsManager.applicableActions(domain, state)[0];
+    applActObject = [applAct.action, applAct.map];
+    index = getActionIndex(applActObject,graph);
+    fluentIndexes = getFluentIndexes(state.actions, graph);
+    console.log('graph', graph);
+    console.log('applicable actions',applActObject);
+    console.log('actionIndex', index);
+    console.log('fluent index', fluentIndexes);
     return graph;
 }
 
@@ -890,6 +1065,9 @@ function getSumOfPreconditions(actionNode, graph){
     var sum = 0;
     for (index in actionNode.preconditionIndices){
         currentIndex = actionNode.preconditionIndices[index];
+        if (graph[currentIndex].value == Number.POSITIVE_INFINITY){
+            return Number.POSITIVE_INFINITY
+        }
         sum = sum + graph[currentIndex].value;
     }
     return sum;
@@ -900,7 +1078,7 @@ function getMaxPrecondition(actionNode, graph){
     for (index in actionNode.preconditionIndices){
         currentIndex = actionNode.preconditionIndices[index];
         if(graph[currentIndex].value > maxPreconditon){
-            maxPreconditoon = graph[currentIndex].value;
+            maxPreconditon = graph[currentIndex].value;
         }
     }
     return maxPreconditon;
@@ -917,10 +1095,6 @@ function getAdders(fluentNode, graph){
         }
     }
     
-    // for (index in fluentNode.effectIndexIndiceses){
-    //     currentIndex = fluentNode.effectIndices[index];
-    //     adders.push(graph[currentIndex]);
-    // }
     return adders;
 }
 
@@ -996,7 +1170,7 @@ define(function () {
           ref.parentNode.insertBefore(style, ref);
         }
         // Adds menu button that allows for choosing files
-        window.add_menu_button('Viz', 'vizMenuItem', 'glyphicon-signal',"chooseFiles('viz')");
+        window.add_menu_button('Viz', 'vizMenuItem', 'glyphicon-tower',"chooseFiles('viz')");
         window.inject_styles('.viz_display {padding: 20px 0px 0px 40px;}')
 
         // Register this as a user of the file chooser interface
@@ -1097,80 +1271,3 @@ function getTreeData(graph, layerIndex) {
 
     return treeData;
 }
-
-// Commented out functions:
-
-// var viewerWidth = $(document).width();
-// var viewerHeight = $(document).height();
-
-//
-// function centreNode(source){
-//   var scale = zoom.scaleTo();
-//   var x = -source.y0 * scale + viewerWidth/2;
-//   var y = -source.x0 * scale + viewerHeight/2;
-//   d3.select('g').transition()
-//     .duration(duration)
-//     .attr("transform", "translate(" + x + "," + y + ")scale(" + scale + ")");
-//   zoom.scaleTo(scale);
-//   zoomListener.translate([x, y]);
-// // }
-
-// function centreNode(source){
-//    var t = d3.event.transform;
-//    console.log(t);
-//
-//    x =  t.x;
-//    y = source.x0;
-//
-//    y = -y *t.k + viewerHeight / 2;
-//
-//    g.transition()
-//     .duration(duration)
-//     .attr("transform", "translate(" + x + "," + y + ")scale(" + t.k + ")")
-//     .on("end", function(){ zoomer.call(zoom.transform, d3.zoomIdentity.translate(x,y).scale(t.k))});
-// }
-//
-function zoomed() {
-      svg.attr("transform", d3.event.transform);
-      /*
-      // this is intended to start the zoom at center where the current node is
-      var transform = d3.event.transform,
-          point = transform.invert(center);
-          console.log("point",point, "focus", focus)
-      transform = transform.translate(point[0] - focus[0], point[1] - focus[1]);
-      svg.attr("transform", transform);
-      */
-     }
-//
-// // Part of nodeEnter:
-// // .on('dblclick',function(e){
-//       //   window.new_tab('Node', function(editor_name){
-      //     $('#' +editor_name).html('<div style = "margin:13px 26px"><h2>Viz</h2>')
-      //     // '<p id="hv-output"></p>')
-      //   })
-      // });
-
-      //   window.new_tab('Node Tab', function(editor_name){
-      //     $('#' +editor_name).html('<div style = "margin:13px 26px"><h2>Viz</h2>' +
-      //     '<button onclick="makeTree()" style="float:right;margin-left:16px">makeTree</button>' +
-      //
-      // });
-
-
-    /*
-
-    I'm not sure what this svg select does: commented it out for now and it still works - Cam
-
-    */
-
-    // svg = d3.select("#svg-container").append("svg")
-    //     // .attr("width","100%")
-    //     // .attr("height", "100%")
-    //     .attr("width",viewerWidth)
-    //     .attr("height",viewerHeight)
-    //     .attr("preserveAspectRatio", "xMinYMid meet")
-    //     .attr("display", "block")
-
-    // var svg_container = $("#svg-container");
-    // viewerWidth = svg_container.width();
-    // viewerHeight = svg_container.height();
