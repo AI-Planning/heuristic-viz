@@ -271,7 +271,7 @@ function update(source){
 
     // Update the nodes...
     var node = svg.selectAll('g.node')
-        .data(nodes, function(d) {return d.id || (d.id = ++i); })
+        .data(nodes, function(d) {return d.data.name; })
 
     // Enter any new modes at the parent's previous position.
     var nodeEnter = node.enter().append('g')
@@ -349,7 +349,7 @@ function update(source){
 
     // Update the links...
     var link = svg.selectAll('path.link')
-        .data(links, function(d) { return d.id; });
+        .data(links, function(d) { return d.data.name; });
 
     // Enter any new links at the parent's previous position.
     var linkEnter = link.enter().insert('path', "g")
