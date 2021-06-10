@@ -16,21 +16,100 @@ function loadStatespace() {
     $('#chooseFilesModal').modal('toggle');
     $('#plannerURLInput').show();
 
-    // Parsing and processing the domain & problem
-    StripsManager.loadFromString(domText, probText, function(d, p) {
-        // Allocating global variables
-        DOMAIN = d;
-        PROBLEM = p;
-        // Initialize the root
-        treeData = {"name":"root", "children":[], "state":p.states[0], "loadedChildren":false};
-        // Keeps track of state numbers to distinguish them easily
+    let domain = "                (define (domain BLOCKS)" +
+        "                (:requirements :strips)" +
+        "                (:predicates (on ?x ?y)" +
+        "                        (ontable ?x)" +
+        "                        (clear ?x)" +
+        "                        (handempty)" +
+        "                        (holding ?x)" +
+        "                        )" +
+        "" +
+        "                (:action pick-up" +
+        "                        :parameters (?x)" +
+        "                        :precondition (and (clear ?x) (ontable ?x) (handempty))" +
+        "                        :effect" +
+        "                        (and (not (ontable ?x))" +
+        "                        (not (clear ?x))" +
+        "                        (not (handempty))" +
+        "                        (holding ?x)))" +
+        "" +
+        "                (:action put-down" +
+        "                        :parameters (?x)" +
+        "                        :precondition (holding ?x)" +
+        "                        :effect" +
+        "                        (and (not (holding ?x))" +
+        "                        (clear ?x)" +
+        "                        (handempty)" +
+        "                        (ontable ?x)))" +
+        "                (:action stack" +
+        "                        :parameters (?x ?y)" +
+        "                        :precondition (and (holding ?x) (clear ?y))" +
+        "                        :effect" +
+        "                        (and (not (holding ?x))" +
+        "                        (not (clear ?y))" +
+        "                        (clear ?x)" +
+        "                        (handempty)" +
+        "                        (on ?x ?y)))" +
+        "                (:action unstack" +
+        "                        :parameters (?x ?y)" +
+        "                        :precondition (and (on ?x ?y) (clear ?x) (handempty))" +
+        "                        :effect" +
+        "                        (and (holding ?x)" +
+        "                        (clear ?y)" +
+        "                        (not (clear ?x))" +
+        "                        (not (handempty))" +
+        "                        (not (on ?x ?y)))))";
+
+    let problem = "(define (problem BLOCKS-4-0)" +
+        "                (:domain BLOCKS)" +
+        "                (:objects D B A C )" +
+        "                (:INIT (CLEAR C) (CLEAR A) (CLEAR B) (CLEAR D) (ONTABLE C) (ONTABLE A)" +
+        "                (ONTABLE B) (ONTABLE D) (HANDEMPTY))" +
+        "                (:goal (AND (ON D C) (ON C B) (ON B A)))" +
+        "                )";
+
+    // Ground
+    ground(domain, problem).then(function(result) {
+        treeData = {"name":"root", "children":[], "state":result, "strState":result.toString(), "precondition":null, "loadedChildren":false};
+        // console.log(treeData);
         stateCounter = 1;
-        // Setting global goal
-        goal = p.states[1];
-        // Launch the tree visualization
         launchViz();
     });
+    
+    
+    
+    // Launch the tree visualization
+    // launchViz();
+
+
+    // // Parsing and processing the domain & problem
+    // StripsManager.loadFromString(domain, problem, function(d, p) {
+    //     // Allocating global variables
+    //     DOMAIN = d;
+    //     PROBLEM = p;
+    //     // Initialize the root
+    //     treeData = {"name":"root", "children":[], "state":p.states[0], "loadedChildren":false};
+    //     // Keeps track of state numbers to distinguish them easily
+    //     stateCounter = 1;
+    //     // Setting global goal
+    //     goal = p.states[1];
+    //     // Launch the tree visualization
+    //     launchViz();
+    // });
+
+
+    
 }
+
+// function testMakeTree() {
+//     // Testing expanding a state
+//     root = d3.hierarchy(treeData, function(d) { return d.children; });
+//     loadData(root);
+//     console.log(root);
+// }
+
+
 
 function launchViz(){
     window.new_tab('Viz2.0', function(editor_name){
@@ -49,9 +128,9 @@ function makeTree() {
     // Prevents the creation of more than one tree
     if (goTree){
         // Set the dimensions and margins of the diagram
-        var margin = {top: 20, right: 30, bottom: 30, left: 90},
-        width = 1100 - margin.left - margin.right,
-        height = 700 - margin.top - margin.bottom;
+        var margin = {top: 20, right: 30, bottom: 30, left: 90};
+        var width = 1100 - margin.left - margin.right;
+        var height = 700 - margin.top - margin.bottom;
 
         // Initialize d3 zoom
         zoom = d3.zoom().on('zoom', function() {
@@ -68,7 +147,7 @@ function makeTree() {
             .append("g")
             .attr("transform", "translate("+ margin.left + "," + margin.top + ")")
             .append("g")
-            .attr("transform", "translate("+ (width/2) - 30 + "," + margin.top + ")");
+            .attr("transform", "translate("+ (width / 2) + "," + margin.top + ")");
 
         // create the tooltip
         d3.select("#statespace")
@@ -94,16 +173,12 @@ function makeTree() {
         root.y0 = 0;
 
         // Loads children of root
-        loadData(root);
-
-        // Expands the root node to show loaded children
-        convertNode(root);
-
-        // Display
-        update(root);
-
-        // Preventing multiple trees
-        goTree = false;
+        loadData(root, function(result) {
+            convertNode(result);
+            update(result);
+            // Preventing multiple trees
+            goTree = false;
+        });
   }
 }
 
@@ -117,24 +192,24 @@ function zoomOut(){
   zoom.scaleBy(svg, 1 / 1.3);
 }
 
-// Uses Strips.getChildStates to generate children of a supplied node
-function loadData(node) {
+function loadData(node, callback) {
     if(!node.loadedChildren) {
-      // Node has a 'stripsState' field that contains the corresponding planning state
-      const data = StripsManager.getChildStates(DOMAIN, node.data.state);
-
-      // Run through each child
-      data.forEach((s) => {
-          // Add each item to the node that we want to expands child field
-          if(node.data.children) {
-                // Init data    
-                const newName = "State " + stateCounter;
-                stateCounter += 1;
-                let generatedChild = {"name":newName,"children":[],"state": s.state,"loadedChildren":false};
-                node.data.children.push(generatedChild);
-          }
-      });
-      node.loadedChildren = true;
+        const state = node.data.state;
+        getChildStates(state)
+        .then(data => {
+            for (let i = 0; i < data['states'].length; i++) {
+                if(node.data.children) {
+                    // Create data
+                    const newName = "State " + stateCounter;
+                    stateCounter += 1;
+                    const stringState = data['states'][i].toString();
+                    const newState = {"name":newName, "children":[], "state":data['states'][i], "strState":stringState, "precondition":data['actions'][i], "loadedChildren":false}; 
+                    node.data.children.push(newState);
+                }
+            }
+            node.loadedChildren = true;
+            callback(node);
+        });   
     }
 }
 
@@ -164,22 +239,25 @@ function convertNode(node) {
 // Toggle children on click.
 function click(d) {
     if (d3.event.defaultPrevented) return;
-
     if(!d.loadedChildren && !d.children) {
         // Load children, expand
-        loadData(d);
-        convertNode(d);
-        d.children = d._children;
-        d._children = null;
+        loadData(d, result => {
+            console.log(result.data.strState);
+            convertNode(d);
+            d.children = d._children;
+            d._children = null;
+            update(d);
+        });
     }
     else if (d.children) {
         d._children = d.children;
         d.children = null;
+        update(d);
     } else {
         d.children = d._children;
         d._children = null;
+        update(d);
     }
-    update(d);
 }
 
 // Double click on node: opens up heuristic visualization
@@ -258,7 +336,7 @@ function update(source){
     }
     var mousemove = function(d) {
         Tooltip
-            .html(description(d))
+            .html(d.data.strState)
             .style("left", (d3.event.pageX - 400) + "px")
             .style("top", (d3.event.pageY - 50) + "px");
     }
@@ -280,7 +358,7 @@ function update(source){
             return "translate(" + source.y0 + "," + source.x0 + ")";
         })
         .on('click', click)
-        .on('dblclick',dblclick)
+        // .on('dblclick',dblclick)
         .on("mouseover", mouseover)
         .on("mousemove", mousemove)
         .on("mouseleave", mouseleave);
@@ -290,13 +368,14 @@ function update(source){
         .attr('class', 'node')
         .attr('r', 1e-6)
         .style("fill", function(d) {
-            if(StripsManager.isGoal(d.data.state, goal)) {
-                return "yellow";
-            } else if (d._children) {
-                return "#000080"
-            } else {
-                return "lightsteelblue";
-            }
+            // if(isGoal(d.data.state)) {
+            //     return "yellow";
+            // } else if (d._children) {
+            //     return "#000080"
+            // } else {
+            //     return "lightsteelblue";
+            // }
+            return "lightsteelblue";
         });
 
     // Add labels for the nodes
@@ -1169,6 +1248,9 @@ define(function () {
           var ref = document.querySelector('script');
           ref.parentNode.insertBefore(style, ref);
         }
+        // Init grounding
+        initializeGrounding();
+        
         // Adds menu button that allows for choosing files
         window.add_menu_button('Viz', 'vizMenuItem', 'glyphicon-tower',"chooseFiles('viz')");
         window.inject_styles('.viz_display {padding: 20px 0px 0px 40px;}')
