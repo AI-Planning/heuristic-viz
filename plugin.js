@@ -75,41 +75,9 @@ function loadStatespace() {
         // console.log(treeData);
         stateCounter = 1;
         launchViz();
+        startHeuristicViz(root);
     });
-    
-    
-    
-    // Launch the tree visualization
-    // launchViz();
-
-
-    // // Parsing and processing the domain & problem
-    // StripsManager.loadFromString(domain, problem, function(d, p) {
-    //     // Allocating global variables
-    //     DOMAIN = d;
-    //     PROBLEM = p;
-    //     // Initialize the root
-    //     treeData = {"name":"root", "children":[], "state":p.states[0], "loadedChildren":false};
-    //     // Keeps track of state numbers to distinguish them easily
-    //     stateCounter = 1;
-    //     // Setting global goal
-    //     goal = p.states[1];
-    //     // Launch the tree visualization
-    //     launchViz();
-    // });
-
-
-    
 }
-
-// function testMakeTree() {
-//     // Testing expanding a state
-//     root = d3.hierarchy(treeData, function(d) { return d.children; });
-//     loadData(root);
-//     console.log(root);
-// }
-
-
 
 function launchViz(){
     window.new_tab('Viz2.0', function(editor_name){
@@ -203,7 +171,7 @@ function loadData(node, callback) {
                     const newName = "State " + stateCounter;
                     stateCounter += 1;
                     const stringState = data['states'][i].toString();
-                    const newState = {"name":newName, "children":[], "state":data['states'][i], "strState":stringState, "precondition":data['actions'][i], "loadedChildren":false}; 
+                    const newState = {"name":newName, "children":[], "state":data['states'][i], "strState":stringState, "precondition":data['actions'][i].toString(), "loadedChildren":false}; 
                     node.data.children.push(newState);
                 }
             }
@@ -239,6 +207,9 @@ function convertNode(node) {
 // Toggle children on click.
 function click(d) {
     if (d3.event.defaultPrevented) return;
+
+    console.log(d);
+
     if(!d.loadedChildren && !d.children) {
         // Load children, expand
         loadData(d, result => {
@@ -332,7 +303,8 @@ function update(source){
             .style("opacity", 1)
         d3.select(this)
             .style("stroke", "black")
-            .style("opacity", 1)
+            .style("opacity", 1);
+        hoveredOverStateInStatespace(d);
     }
     var mousemove = function(d) {
         Tooltip
@@ -367,16 +339,7 @@ function update(source){
     nodeEnter.append('circle')
         .attr('class', 'node')
         .attr('r', 1e-6)
-        .style("fill", function(d) {
-            // if(isGoal(d.data.state)) {
-            //     return "yellow";
-            // } else if (d._children) {
-            //     return "#000080"
-            // } else {
-            //     return "lightsteelblue";
-            // }
-            return "lightsteelblue";
-        });
+        .style("fill", "lightsteelblue");
 
     // Add labels for the nodes
     nodeEnter.append('text')
@@ -473,6 +436,10 @@ function diagonal(s, d) {
     return path
 }
 
+function hoveredOverStateInStatespace(d) {
+    console.log("Hovered over state ", d, " in the state space.");
+}
+
 /*
 --------------------------------------------------------------------------------
                                 END OF TREE CODE
@@ -484,6 +451,14 @@ function diagonal(s, d) {
                                 START OF HEURISTIC GRAPH CODE
 --------------------------------------------------------------------------------
 */
+
+// TARSKI STUFF
+function graphData() {
+    // Graph data in json obj needs to be of form {"nodes":[{id:INT}], "links":[{"source", "target"}]}  
+    var data = {"nodes":[], "links":[]}; 
+    console.log(getGroundedFluents());
+    console.log(getGroundedActions());
+}
 
 // Formats graph data for a d3-style graph
 function formatGraphData(node, graph) {
@@ -536,8 +511,10 @@ function startHeuristicViz(node) {
 
     // Loading heuristic data from the node
     graph = loadHeuristicData(node.data.state);
+    console.log(graph);
     // Setting data in d3 form
     data = formatGraphData(node, graph);
+    console.log(data);
     
     // Holds the nodes, the links, and the labels
     var node, link, text;
@@ -817,21 +794,6 @@ function loadHeuristicData(node){
     return graphCopy;
 }
 
-function processDomain(domain) {
-    console.log(domain);
-}
-
-// Func to process parsed problem (JSON object)
-function processProblem(problem) {
-    console.log(problem);
-}
-
-function solveStuff(domain, problem){
-    var solutions = strips.solve(domain, problem);
-    var solution = solutions[0];
-    console.log(solution);
-}
-
 function getAllFluents(domain, actions){
     var fluents = [];
     for (action in actions){
@@ -852,6 +814,7 @@ function getAllFluents(domain, actions){
     //console.log(fluents);
     return fluents;
 }
+
 function getApplicableActionInState(action) {
     // This function returns an applicable concrete action for the given state, or null if the precondition is not satisfied.
     var resolvedAction = null;
@@ -860,27 +823,27 @@ function getApplicableActionInState(action) {
     //if (StripsManager.isPreconditionSatisfied(state, action.precondition)) {
         // This action is applicable.
         // Assign a value to each parameter of the effect.
-        var populatedEffect = JSON.parse(JSON.stringify(action.effect));
-        for (var m in action.effect) {
-            var effect = action.effect[m];
+    var populatedEffect = JSON.parse(JSON.stringify(action.effect));
+    for (var m in action.effect) {
+        var effect = action.effect[m];
 
-            for (var n in effect.parameters) {
-                var parameter = effect.parameters[n];
-                var value = action.map[parameter];
-                
-                if (value) {
-                    // Assign this value to all instances of this parameter in the effect.
-                    populatedEffect[m].parameters[n] = value;
-                }
-                else {
-                    StripsManager.output('* ERROR: Value not found for parameter ' + parameter + '.');
-                }
+        for (var n in effect.parameters) {
+            var parameter = effect.parameters[n];
+            var value = action.map[parameter];
+            
+            if (value) {
+                // Assign this value to all instances of this parameter in the effect.
+                populatedEffect[m].parameters[n] = value;
+            }
+            else {
+                StripsManager.output('* ERROR: Value not found for parameter ' + parameter + '.');
             }
         }
-        
-        resolvedAction = JSON.parse(JSON.stringify(action));
-        resolvedAction.effect = populatedEffect;
-        resolvedAction.map = action.map;
+    }
+    
+    resolvedAction = JSON.parse(JSON.stringify(action));
+    resolvedAction.effect = populatedEffect;
+    resolvedAction.map = action.map;
     //}
     
     return resolvedAction;
