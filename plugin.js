@@ -1,4 +1,4 @@
-// Tree Globals 
+// Tree Globals
 var stateCounter, goal, graph, DOMAIN, PROBLEM, treemap, tooltip, goalState, tree, svg, diagonal, stateCounter, i, duration, treeData, treeHeight, goTree = true;
 var root, d3, zoom, viewerWidth, viewerHeight;
 
@@ -103,7 +103,7 @@ function makeTree() {
         zoom = d3.zoom().on('zoom', function() {
                     svg.attr('transform', d3.event.transform);
                     })
-        
+
         // Declaring the SVG object, init attributes
         svg = d3.select("#statespace").append("svg")
             .attr("width", width + margin.right + margin.left)
@@ -169,13 +169,13 @@ function loadData(node, callback) {
                     // Create data
                     const newName = "State " + stateCounter;
                     stateCounter += 1;
-                    const newState = {"name":newName, "children":[], "state":data.states[i], "strState":data.stringStates[i], "precondition":data.actions[i].toString(), "loadedChildren":false}; 
+                    const newState = {"name":newName, "children":[], "state":data.states[i], "strState":data.stringStates[i], "precondition":data.actions[i].toString(), "loadedChildren":false};
                     node.data.children.push(newState);
                 }
             }
             node.loadedChildren = true;
             callback(node);
-        });   
+        });
     }
 }
 
@@ -456,14 +456,14 @@ function generateFluentNodes(state, graph, index) {
         // fluent.preconditions = fluentPreconditions[fluent.]
         if(state.data.strState.includes(fluent)) {
             graph.set(fluent, {
-                'type':'fluent', 
-                'value':0, 
+                'type':'fluent',
+                'value':0,
                 'index':index,
             });
         } else {
             graph.set(fluent, {
-                'type':'fluent', 
-                'value':Number.POSITIVE_INFINITY, 
+                'type':'fluent',
+                'value':Number.POSITIVE_INFINITY,
                 'index':index,
             });
         }
@@ -479,9 +479,9 @@ function generateActionNodes(state, graph, index) {
             'value':Number.POSITIVE_INFINITY,
             'preconditions': action.preconditions,
             'effects': action.effects,
-            'index': index 
+            'index': index
         });
-        index += 1; 
+        index += 1;
     });
 }
 
@@ -498,14 +498,14 @@ function generateGoalNode(graph, index) {
 }
 
 function generateHeuristicGraphData(graph) {
-    var data = {"nodes":[], "links":[]}; 
+    var data = {"nodes":[], "links":[]};
 
     // Populating data with fluents
     fluents.fluents.forEach(fluent => {
         data.nodes.push({"id":fluent, "name":fluent, "type":"fluent", "value":graph.get(fluent).value});
         fluentPreconditions[fluent] = [];
     });
-    
+
     // Populating data with actions
     Array.from(actions.preconditions.keys()).forEach(action => {
         data.nodes.push({"id":action, "name":action, "type":"action", "value":graph.get(action).value});
@@ -553,7 +553,7 @@ function startHeuristicViz(node) {
         }))
         .append("g")
         .attr("transform","translate(" + margin.left + "," + margin.top + ")");
-    
+
     // Initializing the arrow head for links
     svg.append('defs')
         .append('marker')
@@ -635,7 +635,7 @@ function startHeuristicViz(node) {
 
     hSim.force('link')
         .links(data.links);
-    
+
     // This function is run at each iteration of the force algorithm, updating the node, link, and text positions.
     function ticked() {
         link
@@ -645,9 +645,9 @@ function startHeuristicViz(node) {
             .attr("y2", function(d) { return d.target.y; });
 
         node
-            .attr("transform", (d) => "translate(" + d.x + ", " + d.y + ")");            
-    
-        text    
+            .attr("transform", (d) => "translate(" + d.x + ", " + d.y + ")");
+
+        text
             .attr("transform", (d) => "translate(" + d.x + ", " + d.y + ")");
     }
 
@@ -657,12 +657,12 @@ function startHeuristicViz(node) {
         d.fy = d.y;
         d.fixed = false;
       }
-      
+
     function dragged(d) {
         d.fx = d3.event.x;
         d.fy = d3.event.y;
     }
-    
+
     function dragended(d) {
         d.fixed = true;
     }
@@ -680,7 +680,7 @@ function startHeuristicViz(node) {
 
     // Update node labels to reflect value change
     function updateLabels() {
-        // Updates labels to reflect changes in value 
+        // Updates labels to reflect changes in value
         svg.selectAll("text").data(data.nodes)
             .transition().duration(500)
             .text((d) => d.name + " Value: " + d.value)
@@ -738,7 +738,7 @@ function startHeuristicViz(node) {
                 }
             }
         });
-        
+
         text.style('opacity', function(o) {
             if(d.type == "action") {
                 if(actions['preconditions'].get(d.id).includes(o.id) || d.id == o.id) {
@@ -756,9 +756,9 @@ function startHeuristicViz(node) {
                 }
             }
         });
-        
+
         link
-            .style('stroke', function (o) { 
+            .style('stroke', function (o) {
                 if(o.target.id == d.id) {
                     return '#69b3b2';
                 } else {
@@ -776,8 +776,8 @@ function startHeuristicViz(node) {
 
     // Removes black highlight from nodes and their predecessors
     function removeHighlight(d) {
-        node.style("stroke", "none"); 
-        d3.select(this).style('opacity', 1); 
+        node.style("stroke", "none");
+        d3.select(this).style('opacity', 1);
         link
             .style("stroke", "#999")
             .style("stroke-width", "1px")
@@ -790,7 +790,7 @@ function startHeuristicViz(node) {
     function updateHeuristicNode(d) {
         // Update clicked node
         var result = updateValue(graph, d.id, true);
-        
+
         // If an update occured
         if(result[1]) {
             window.toastr.success("Value updated!");
@@ -839,7 +839,7 @@ function getSumOfPreconditions(actionNode, graph) {
         if (graph.get(precondition).value == Number.POSITIVE_INFINITY) {
             return Number.POSITIVE_INFINITY
         }
-        sum += graph.get(precondition).value; 
+        sum += graph.get(precondition).value;
     });
     return sum;
 }
@@ -882,7 +882,7 @@ function updateValue(graph, node, hAdd){
         else{
             updateVal= 1 + getMaxPrecondition(node, graph);
         }
-        
+
     }
     if (updateVal < graph.get(node).value){
         graph.get(node).value = updateVal
@@ -922,8 +922,7 @@ define(function () {
         console.log("Plugin initialized! :D");
         // Loads D3 viz
         if ((!window.d3_loaded)){
-          require.config({ paths: { d3: "https://d3js.org/d3.v4.min" }});
-          require(["d3"], function(lib) { window.d3_loaded = true; d3 = lib});
+            require(["https://d3js.org/d3.v4.min.js"], function(lib) {window.d3_loaded = true; window.d3 = lib})
 
           var style = document.createElement('tree');
           style.innerHTML = '.node { cursor:pointer } .node circle { stroke-width:1.5px } .node text { font:10px sans-serif }' +
@@ -933,7 +932,7 @@ define(function () {
         }
         // Init grounding
         initializeGrounding();
-        
+
         // Adds menu button that allows for choosing files
         window.add_menu_button('Viz', 'vizMenuItem', 'glyphicon-tower',"chooseFiles('viz')");
         window.inject_styles('.viz_display {padding: 20px 0px 0px 40px;}')
