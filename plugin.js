@@ -464,15 +464,20 @@ function generateHeuristicGraphData(graph) {
         fluentPreconditions[fluent] = [];
     });
 
-    // Populating data with actions
+    // Populating data with actions, and links with their respective connections 
+    // based on the actions preconditions and effects. 
     Array.from(actions.keys()).forEach(action => {
         data.nodes.push({"id":action, "name":action, "type":"action", "value":graph.get(action).value});
         actions.get(action).get('preconditions').forEach(pcond => {
-            data.links.push({"source":pcond, "target":action});
+            if(fluents.has(pcond)) {
+                data.links.push({"source":pcond, "target":action});   
+            }
         });
         actions.get(action).get('effects').forEach(effect => {
-            fluentPreconditions[effect].push(action);
-            data.links.push({"source":action, "target":effect});
+            if(fluents.has(effect)) {
+                fluentPreconditions[effect].push(action);
+                data.links.push({"source":action, "target":effect});
+            }
         });
     });
 
@@ -704,7 +709,7 @@ function startHeuristicViz(node) {
 
         node.style("opacity", function(o) {
             if(d.type == "goal") {
-                if(graph.get('goal').preconditons.includes(o.id) || d.id == o.id) {
+                if(graph.get('goal').preconditions.includes(o.id) || d.id == o.id) {
                     // o is precondition
                     return 1;
                 } else {
@@ -729,7 +734,7 @@ function startHeuristicViz(node) {
 
         text.style('opacity', function(o) {
             if(d.type == "goal") {
-                if(graph.get('goal').preconditons.includes(o.id) || d.id == o.id) {
+                if(graph.get('goal').preconditions.includes(o.id) || d.id == o.id) {
                     // o is precondition
                     return 1;
                 } else {
@@ -830,11 +835,15 @@ function getUpdatedFluentValue(node, graph){
 
 function getSumOfPreconditions(actionNode, graph) {
     var sum = 0;
+    console.log(actionNode);
     graph.get(actionNode).preconditions.forEach(precondition => {
-        if (graph.get(precondition).value == Number.POSITIVE_INFINITY) {
-            return Number.POSITIVE_INFINITY
+        // Check if the precondition is in the graph (tarski ignores irrelevant ones)
+        if(fluents.has(precondition)) {
+            if (graph.get(precondition).value == Number.POSITIVE_INFINITY) {
+                return Number.POSITIVE_INFINITY
+            }
+            sum += graph.get(precondition).value;
         }
-        sum += graph.get(precondition).value;
     });
     return sum;
 }
