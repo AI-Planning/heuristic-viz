@@ -372,12 +372,18 @@ function hoveredOverStateInStatespace(d) {
 --------------------------------------------------------------------------------
 */
 
+// Make graph function, returns false if the problem is not a legal version for the heuristic
 function makeGraph(state){
     var graph = new Map();
     let index = 1;
     
     fluents = getGroundedFluents();
     actions = getGroundedActions();
+
+    if(actions == false) {
+        // Precondition has a negative, cannot compute heuristic, return
+        return false;
+    }
 
     generateFluentNodes(state, graph, index);
     generateActionNodes(graph, index);
@@ -483,14 +489,22 @@ function generateHeuristicGraphData(graph) {
 
 // Launches the heuristic visualizer tab, formats data, and initiates the visualization
 function startHeuristicViz(node) {
+
+    graph = makeGraph(node);
+
+    if(graph == false) {
+        // Cannot make the heuristic graph, throw err
+        window.toastr.error("Problem needs to be in STRIPS format for heuristic visualization.");
+        return;
+    }
+
+    data = generateHeuristicGraphData(graph);
+
     // Make a new tab for the viz
     window.new_tab('Node', function(editor_name){
         $('#' +editor_name).html('<div style = "margin:13px 7px;text-align:center"><h2>Heuristic Visualization</h2><div id="heuristic"></div><button onclick="freeze()" style="float:right;margin-left:16px" id ="Freeze">Freeze</button>');
         svgID = editor_name;
     });
-
-    graph = makeGraph(node);
-    data = generateHeuristicGraphData(graph);
 
     // Holds the nodes, the links, and the labels
     var node, link, text;
