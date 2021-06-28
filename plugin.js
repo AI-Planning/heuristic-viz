@@ -922,16 +922,12 @@ define(function () {
       description: "Heuristic Visualization",
 
       initialize: function() {
-        // Loads D3 viz
-        if ((!window.d3_loaded)){
-            require(["https://d3js.org/d3.v4.min.js"], function(lib) {window.d3_loaded = true; window.d3 = lib})
+        var style = document.createElement('tree');
+        style.innerHTML = '.node { cursor:pointer } .node circle { stroke-width:1.5px } .node text { font:10px sans-serif }' +
+              'div.tooltip {position:absolute; padding:6px; font:12px sans-serif; background-color:#FFA; border-radius:8px; pointer-events:none; left:0; top:0}';
+        var ref = document.querySelector('script');
+        ref.parentNode.insertBefore(style, ref);
 
-          var style = document.createElement('tree');
-          style.innerHTML = '.node { cursor:pointer } .node circle { stroke-width:1.5px } .node text { font:10px sans-serif }' +
-                'div.tooltip {position:absolute; padding:6px; font:12px sans-serif; background-color:#FFA; border-radius:8px; pointer-events:none; left:0; top:0}';
-          var ref = document.querySelector('script');
-          ref.parentNode.insertBefore(style, ref);
-        }
         // Init grounding
         initializeGrounding();
 
