@@ -1,5 +1,5 @@
 // Tree Globals
-var stateCounter, goal, graph, DOMAIN, PROBLEM, treemap, tooltip, goalState, tree, svg, diagonal, stateCounter, i, duration, treeData, treeHeight, goTree = true;
+var stateCounter, graph, treemap, svg, duration, treeData, treeHeight, goTree = true;
 var root, d3, zoom, viewerWidth, viewerHeight;
 
 // Heuristic globals
@@ -9,70 +9,16 @@ var hSim, svgID, svgCount=1, actions, fluents, fluentPreconditions = {}, formatt
 function loadStatespace() {
 
     // Getting string versions of the selected files
-    var domText = window.ace.edit($('#domainSelection').find(':selected').val()).getSession().getValue();
-    var probText = window.ace.edit($('#problemSelection').find(':selected').val()).getSession().getValue();
+    var domain = window.ace.edit($('#domainSelection').find(':selected').val()).getSession().getValue();
+    var problem = window.ace.edit($('#problemSelection').find(':selected').val()).getSession().getValue();
 
     // Lowering the choose file modal menu
     $('#chooseFilesModal').modal('toggle');
     $('#plannerURLInput').show();
 
-    let domain = "                (define (domain BLOCKS)" +
-        "                (:requirements :strips)" +
-        "                (:predicates (on ?x ?y)" +
-        "                        (ontable ?x)" +
-        "                        (clear ?x)" +
-        "                        (handempty)" +
-        "                        (holding ?x)" +
-        "                        )" +
-        "" +
-        "                (:action pick-up" +
-        "                        :parameters (?x)" +
-        "                        :precondition (and (clear ?x) (ontable ?x) (handempty))" +
-        "                        :effect" +
-        "                        (and (not (ontable ?x))" +
-        "                        (not (clear ?x))" +
-        "                        (not (handempty))" +
-        "                        (holding ?x)))" +
-        "" +
-        "                (:action put-down" +
-        "                        :parameters (?x)" +
-        "                        :precondition (holding ?x)" +
-        "                        :effect" +
-        "                        (and (not (holding ?x))" +
-        "                        (clear ?x)" +
-        "                        (handempty)" +
-        "                        (ontable ?x)))" +
-        "                (:action stack" +
-        "                        :parameters (?x ?y)" +
-        "                        :precondition (and (holding ?x) (clear ?y))" +
-        "                        :effect" +
-        "                        (and (not (holding ?x))" +
-        "                        (not (clear ?y))" +
-        "                        (clear ?x)" +
-        "                        (handempty)" +
-        "                        (on ?x ?y)))" +
-        "                (:action unstack" +
-        "                        :parameters (?x ?y)" +
-        "                        :precondition (and (on ?x ?y) (clear ?x) (handempty))" +
-        "                        :effect" +
-        "                        (and (holding ?x)" +
-        "                        (clear ?y)" +
-        "                        (not (clear ?x))" +
-        "                        (not (handempty))" +
-        "                        (not (on ?x ?y)))))";
-
-    let problem = "(define (problem BLOCKS-4-0)" +
-        "                (:domain BLOCKS)" +
-        "                (:objects D B A C )" +
-        "                (:INIT (CLEAR C) (CLEAR A) (CLEAR B) (CLEAR D) (ONTABLE C) (ONTABLE A)" +
-        "                (ONTABLE B) (ONTABLE D) (HANDEMPTY))" +
-        "                (:goal (AND (ON D C) (ON C B) (ON B A)))" +
-        "                )";
-
-    // Ground
+    // Ground the domain and problem
     ground(domain, problem).then(function(result) {
         treeData = {"name":"root", "children":[], "state":result.state, "strState":result.strState, "precondition":null, "loadedChildren":false};
-        // console.log(treeData);
         stateCounter = 1;
         launchViz();
     });
@@ -128,7 +74,6 @@ function makeTree() {
             .style("padding", "5px")
 
         // Num and duration of animations
-        i = 0;
         duration = 750;
 
         // declares a tree layout and assigns the size
@@ -159,6 +104,7 @@ function zoomOut(){
   zoom.scaleBy(svg, 1 / 1.3);
 }
 
+// Loads children of a supplied node
 function loadData(node, callback) {
     if(!node.loadedChildren) {
         const state = node.data.state;
@@ -174,13 +120,15 @@ function loadData(node, callback) {
                 }
             }
             node.loadedChildren = true;
+            // Call the callback function with the node that contains
+            // the newly loaded children
             callback(node);
         });
     }
 }
 
 // Converts the node to d3 tree form using d3.hierarchy
-// Initializes other properties
+// and initializes other properties
 function convertNode(node) {
     // Get children of node
     const allChildren = node.data.children;
@@ -275,7 +223,7 @@ function update(source){
     }
     var mousemove = function(d) {
         Tooltip
-            .html(d.data.strState)
+            .html(formatTooltip(d))
             .style("left", (d3.event.pageX - 400) + "px")
             .style("top", (d3.event.pageY - 50) + "px");
     }
@@ -403,6 +351,11 @@ function diagonal(s, d) {
     return path
 }
 
+// Returns a string of formatted html
+function formatTooltip(node) {
+    return node.data.strState.join(' \n');
+}
+
 function hoveredOverStateInStatespace(d) {
     console.log("Hovered over state ", d, " in the state space.");
 }
@@ -419,16 +372,21 @@ function hoveredOverStateInStatespace(d) {
 --------------------------------------------------------------------------------
 */
 
+// Make graph function, returns false if the problem is not a legal version for the heuristic
 function makeGraph(state){
     var graph = new Map();
     let index = 1;
-
+    
     fluents = getGroundedFluents();
     actions = getGroundedActions();
-    formattedActions = formatActions(actions);
+
+    if(actions == false) {
+        // Precondition has a negative, cannot compute heuristic, return
+        return false;
+    }
 
     generateFluentNodes(state, graph, index);
-    generateActionNodes(state, graph, index);
+    generateActionNodes(graph, index);
     generateGoalNode(graph, index);
 
     return graph;
@@ -452,7 +410,7 @@ function formatActions(actions) {
 
 function generateFluentNodes(state, graph, index) {
     // Have to check if this fluent is in the state to initialize (do this after)
-    fluents.fluents.forEach(fluent => {
+    fluents.forEach(fluent => {
         // fluent.preconditions = fluentPreconditions[fluent.]
         if(state.data.strState.includes(fluent)) {
             graph.set(fluent, {
@@ -471,14 +429,14 @@ function generateFluentNodes(state, graph, index) {
     });
 }
 
-function generateActionNodes(state, graph, index) {
-    formattedActions.forEach(action => {
-        console.log("action: ", action.action);
-        graph.set(action.action, {
+function generateActionNodes(graph, index) {
+    Array.from(actions.keys()).forEach(action => {
+        actionData = actions.get(action);
+        graph.set(action, {
             'type':'action',
             'value':Number.POSITIVE_INFINITY,
-            'preconditions': action.preconditions,
-            'effects': action.effects,
+            'preconditions': actionData.get('preconditions'),
+            'effects': actionData.get('effects'),
             'index': index
         });
         index += 1;
@@ -501,37 +459,58 @@ function generateHeuristicGraphData(graph) {
     var data = {"nodes":[], "links":[]};
 
     // Populating data with fluents
-    fluents.fluents.forEach(fluent => {
+    fluents.forEach(fluent => {
         data.nodes.push({"id":fluent, "name":fluent, "type":"fluent", "value":graph.get(fluent).value});
         fluentPreconditions[fluent] = [];
     });
 
-    // Populating data with actions
-    Array.from(actions.preconditions.keys()).forEach(action => {
+    // Populating data with actions, and links with their respective connections 
+    // based on the actions preconditions and effects. 
+    Array.from(actions.keys()).forEach(action => {
         data.nodes.push({"id":action, "name":action, "type":"action", "value":graph.get(action).value});
-        actions.preconditions.get(action).forEach(pcond => {
-            data.links.push({"source":pcond, "target":action});
+        actions.get(action).get('preconditions').forEach(pcond => {
+            if(fluents.has(pcond)) {
+                data.links.push({"source":pcond, "target":action});   
+            }
         });
-        actions['effects'].get(action).forEach(effect => {
-            fluentPreconditions[effect].push(action);
-            data.links.push({"source":action, "target":effect});
+        actions.get(action).get('effects').forEach(effect => {
+            if(fluents.has(effect)) {
+                fluentPreconditions[effect].push(action);
+                data.links.push({"source":action, "target":effect});
+            }
         });
-    })
+    });
+
+    // Adding goal node
+    data.nodes.push({"id":'goal', "name":'goal', "type":"goal", "value":graph.get('goal').value});
+
+    // Adding goal links
+    graph.get('goal').preconditions.forEach(goalPrecondtion => {
+        data.links.push({"source":goalPrecondtion, "target":'goal'});
+    });
+
     return data;
 }
 
 // Launches the heuristic visualizer tab, formats data, and initiates the visualization
 function startHeuristicViz(node) {
+
+    graph = makeGraph(node);
+
+    if(graph == false) {
+        // Cannot make the heuristic graph, throw err
+        window.toastr.error("Problem needs to be in STRIPS format for heuristic visualization.");
+        return;
+    }
+
+    data = generateHeuristicGraphData(graph);
+
     // Make a new tab for the viz
     window.new_tab('Node', function(editor_name){
         $('#' +editor_name).html('<div style = "margin:13px 7px;text-align:center"><h2>Heuristic Visualization</h2><div id="heuristic"></div><button onclick="freeze()" style="float:right;margin-left:16px" id ="Freeze">Freeze</button>');
         svgID = editor_name;
     });
 
-    graph = makeGraph(node);
-    data = generateHeuristicGraphData(graph);
-
-    console.log("Hviz data: ", data);
     // Holds the nodes, the links, and the labels
     var node, link, text;
 
@@ -704,8 +683,15 @@ function startHeuristicViz(node) {
         node.style("stroke", function(o) {
             // d is this
             // o is other
-            if(d.type == "action") {
-                if(actions['preconditions'].get(d.id).includes(o.id) || d.id == o.id) {
+            if(d.type == "goal") {
+                if(graph.get('goal').preconditions.includes(o.id) || d.id == o.id) {
+                    // o is precondition
+                    return '#a7440f';
+                } else {
+                    return 'none';
+                }
+            } else if(d.type == "action") {
+                if(actions.get(d.id).get('preconditions').includes(o.id) || d.id == o.id) {
                     // o is precondition
                     return '#a7440f';
                 } else {
@@ -722,8 +708,15 @@ function startHeuristicViz(node) {
         });
 
         node.style("opacity", function(o) {
-            if(d.type == "action") {
-                if(actions['preconditions'].get(d.id).includes(o.id) || d.id == o.id) {
+            if(d.type == "goal") {
+                if(graph.get('goal').preconditions.includes(o.id) || d.id == o.id) {
+                    // o is precondition
+                    return 1;
+                } else {
+                    return 0.5;
+                }
+            } else if(d.type == "action") {
+                if(actions.get(d.id).get('preconditions').includes(o.id) || d.id == o.id) {
                     // o is precondition
                     return 1;
                 } else {
@@ -740,8 +733,15 @@ function startHeuristicViz(node) {
         });
 
         text.style('opacity', function(o) {
-            if(d.type == "action") {
-                if(actions['preconditions'].get(d.id).includes(o.id) || d.id == o.id) {
+            if(d.type == "goal") {
+                if(graph.get('goal').preconditions.includes(o.id) || d.id == o.id) {
+                    // o is precondition
+                    return 1;
+                } else {
+                    return 0.5;
+                }
+            } else if(d.type == "action") {
+                if(actions.get(d.id).get('preconditions').includes(o.id) || d.id == o.id) {
                     // o is precondition
                     return 1;
                 } else {
@@ -835,11 +835,15 @@ function getUpdatedFluentValue(node, graph){
 
 function getSumOfPreconditions(actionNode, graph) {
     var sum = 0;
+    console.log(actionNode);
     graph.get(actionNode).preconditions.forEach(precondition => {
-        if (graph.get(precondition).value == Number.POSITIVE_INFINITY) {
-            return Number.POSITIVE_INFINITY
+        // Check if the precondition is in the graph (tarski ignores irrelevant ones)
+        if(fluents.has(precondition)) {
+            if (graph.get(precondition).value == Number.POSITIVE_INFINITY) {
+                return Number.POSITIVE_INFINITY
+            }
+            sum += graph.get(precondition).value;
         }
-        sum += graph.get(precondition).value;
     });
     return sum;
 }
@@ -859,7 +863,6 @@ function getSumOfPreconditions(actionNode, graph) {
 function getAdders(fluentNode, graph){
     adders = [];
     for(let node of graph.keys()) {
-        console.log(graph.get(node));
         if(graph.get(node).type == 'action') {
             if(graph.get(node).effects.includes(fluentNode)) {
                 adders.push(node);
@@ -919,11 +922,9 @@ define(function () {
       description: "Heuristic Visualization",
 
       initialize: function() {
-        console.log("Plugin initialized! :D");
-
         var style = document.createElement('tree');
         style.innerHTML = '.node { cursor:pointer } .node circle { stroke-width:1.5px } .node text { font:10px sans-serif }' +
-            'div.tooltip {position:absolute; padding:6px; font:12px sans-serif; background-color:#FFA; border-radius:8px; pointer-events:none; left:0; top:0}';
+              'div.tooltip {position:absolute; padding:6px; font:12px sans-serif; background-color:#FFA; border-radius:8px; pointer-events:none; left:0; top:0}';
         var ref = document.querySelector('script');
         ref.parentNode.insertBefore(style, ref);
 
