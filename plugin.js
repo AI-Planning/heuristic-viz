@@ -854,14 +854,11 @@ function getUpdatedFluentValue(node, graph){
 
 function getSumOfPreconditions(actionNode, graph) {
     var sum = 0;
-    console.log(actionNode);
     graph.get(actionNode).preconditions.forEach(precondition => {
         // Check if the precondition is in the graph (tarski ignores irrelevant ones)
         if(fluents.has(precondition)) {
-            if (graph.get(precondition).value == Number.POSITIVE_INFINITY) {
-                return Number.POSITIVE_INFINITY
-            }
             sum += graph.get(precondition).value;
+            console.log(graph.get(precondition).value);
         }
     });
     return sum;
