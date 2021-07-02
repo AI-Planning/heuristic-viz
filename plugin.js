@@ -26,10 +26,20 @@ function loadStatespace() {
 
 function launchViz(){
     window.new_tab('Viz2.0', function(editor_name){
-      $('#' +editor_name).html('<div style = "margin:13px 26px;text-align:center"><h2>Viz</h2>' +
-      '<button onclick="zoomIn()" style="float:right;margin-left:16px" id ="ZoomIn">ZoomIn</button>' +
-      '<button onclick="zoomOut()" style="float:right;margin-left:16px" id ="ZoomOut">ZoomOut</button>' +
-      '<div id="statespace"></div>' +
+      $('#' +editor_name).html('<div style = "margin:13px 26px;text-align:center"><h2>Heuristic Search Vizualization</h2>' +
+      //'<button onclick="zoomIn()" style="float:right;margin-left:16px" id ="ZoomIn">ZoomIn</button>' +
+      //'<button onclick="zoomOut()" style="float:right;margin-left:16px" id ="ZoomOut">ZoomOut</button>' +
+      '<div class="row">' +
+      '  <div id="statespace" class="col-md-9"></div>' +
+      '  <div id="statepanel" class="col-md-3">' +
+      '    <div id="statebuttons" style="padding:10px">' +
+      '      <button onclick="show_hadd()" type="button" class="btn btn-info">hadd</button>' +
+      '      <button onclick="compute_plan()" type="button" class="btn btn-success">Plan</button>' +
+      '    </div>' +
+      '    <div id="statename" style="clear:both">State</div>' +
+      '    <div id="statedetails" style="padding:10px"></div>' +
+      '  </div>' +
+      '</div>' +
       '<node circle style ="fill:black;stroke:black;stroke-width:3px;></node circle>' +
       '<p id="hv-output"></p>');
     });
@@ -42,7 +52,7 @@ function makeTree() {
     if (goTree){
         // Set the dimensions and margins of the diagram
         var margin = {top: 20, right: 30, bottom: 30, left: 90};
-        var width = 1100 - margin.left - margin.right;
+        var width = $('#statespace').width() - margin.left - margin.right;
         var height = 700 - margin.top - margin.bottom;
 
         // Initialize d3 zoom
@@ -52,7 +62,7 @@ function makeTree() {
 
         // Declaring the SVG object, init attributes
         svg = d3.select("#statespace").append("svg")
-            .attr("width", width + margin.right + margin.left)
+            .attr("width", "100%")
             .attr("height", height + margin.top + margin.bottom)
             .style("background-color", "white")
             .call(zoom)
@@ -151,7 +161,7 @@ function convertNode(node) {
 }
 
 // Toggle children on click.
-function click(d) {
+function dblclick(d) {
     if (d3.event.defaultPrevented) return;
 
     if(!d.loadedChildren && !d.children) {
@@ -175,8 +185,15 @@ function click(d) {
 }
 
 // Double click on node: opens up heuristic visualization
-function dblclick(d){
-    startHeuristicViz(d);
+function click(d){
+    window.current_state_node = d;
+    $('#statename').text(d.data.name);
+    $('#statedetails').html('<pre style="text-align: left">'+d.data.strState.sort().join('\n')+'</pre>');
+}
+
+// Called when the hadd button is clicked
+function show_hadd() {
+    startHeuristicViz(window.current_state_node);
 }
 
 // Collapses the node and all it's children
@@ -257,6 +274,7 @@ function update(source){
         .style("fill", "lightsteelblue");
 
     // Add labels for the nodes
+    /*
     nodeEnter.append('text')
         .attr("dy", ".35em")
         .attr("x", function(d) {
@@ -266,6 +284,7 @@ function update(source){
             return d.children || d._children ? "end" : "start";
         })
         .text(function(d) { return d.data.name; });
+    */
 
     // UPDATE
     var nodeUpdate = nodeEnter.merge(node);
