@@ -12,6 +12,9 @@ function loadStatespace() {
     var domain = window.ace.edit($('#domainSelection').find(':selected').val()).getSession().getValue();
     var problem = window.ace.edit($('#problemSelection').find(':selected').val()).getSession().getValue();
 
+    window.heuristicVizDomain = domain;
+    window.heuristicVizProblem = problem;
+
     // Lowering the choose file modal menu
     $('#chooseFilesModal').modal('toggle');
     $('#plannerURLInput').show();
@@ -160,9 +163,14 @@ function convertNode(node) {
     node._children = newHierarchyChildren;
 }
 
-// Toggle children on click.
-function dblclick(d) {
-    if (d3.event.defaultPrevented) return;
+function nodeSelected(d) {
+    window.current_state_node = d;
+    $('#statename').text(d.data.name);
+    $('#statedetails').html('<pre style="text-align: left">'+d.data.strState.sort().join('\n')+'</pre>');
+}
+
+function nodeChildrenToggled(d, cb=null) {
+    if (d3.event && d3.event.defaultPrevented) return;
 
     if(!d.loadedChildren && !d.children) {
         // Load children, expand
@@ -171,24 +179,109 @@ function dblclick(d) {
             d.children = d._children;
             d._children = null;
             update(d);
+            if (cb)
+                cb(d);
         });
     }
     else if (d.children) {
         d._children = d.children;
         d.children = null;
         update(d);
+        if (cb)
+            cb(d);
     } else {
         d.children = d._children;
         d._children = null;
         update(d);
+        if (cb)
+            cb(d);
     }
 }
 
-// Double click on node: opens up heuristic visualization
+function infix(orig) {
+    return '(' + orig.split('(')[0] + ' ' + orig.split('(')[1].split(')')[0].split(',').join(' ') + ')'
+}
+
+function space_free_check(first, second) {
+    return first.replaceAll(' ', '') == second.replaceAll(' ', '');
+}
+
+function successor_node(src, act) {
+    for (var i=0; i<src.children.length; i++) {
+        console.log(infix(src.children[i].data.precondition));
+        if (space_free_check(infix(src.children[i].data.precondition), act))
+            return src.children[i];
+    }
+}
+
+function compute_plan() {
+    var fluents = [];
+    window.current_state_node.data.strState.forEach(f => {
+        fluents.push(infix(f));
+    });
+
+    var new_prob = '';
+    var old_prob = window.heuristicVizProblem;
+
+    var open_brackets = 0;
+
+    for (var i=0; i<old_prob.length; i++) {
+        
+        if (old_prob.substring(i, i+5) == ":init") {
+            new_prob += ":init " + fluents.join('\n') + ')\n';
+            open_brackets = 1;
+        }
+
+        if (open_brackets) {
+            if (old_prob[i] == '(')
+                open_brackets += 1;
+            else if (old_prob[i] == ')')
+                open_brackets -= 1
+        } else {
+            new_prob += old_prob[i];
+        }
+    }
+
+    $.ajax( {url: "https://solver.planning.domains/solve-and-validate",
+        type: "POST",
+        contentType: 'application/json',
+        data: JSON.stringify({"domain": window.heuristicVizDomain,
+                              "problem": new_prob})})
+            .done(function (res) {
+                if (res['status'] === 'ok') {
+                    toastr.success('Plan found!');
+                    var index = 0;
+                    function _expand(cur_node) {
+                        if (index < res.result.plan.length) {
+                            console.log(res.result.plan[index].name);
+                            console.log('i='+index);
+                            if (cur_node.children == null) {
+                                nodeChildrenToggled(cur_node, function(d) {
+                                    var act = res.result.plan[index].name
+                                    index += 1;
+                                    setTimeout(_expand, 300, successor_node(cur_node, act));
+                                });
+                            }
+                        }
+                    }
+                    _expand(window.current_state_node);
+                } else {
+                    toastr.error('Planning failed.');
+                }
+            }
+        );
+}
+
+
+
+// Single click on node: update the info shown for a node
 function click(d){
-    window.current_state_node = d;
-    $('#statename').text(d.data.name);
-    $('#statedetails').html('<pre style="text-align: left">'+d.data.strState.sort().join('\n')+'</pre>');
+    nodeSelected(d);
+}
+
+// Double click on node: expand/collapse children
+function dblclick(d) {
+    nodeChildrenToggled(d);
 }
 
 // Called when the hadd button is clicked
