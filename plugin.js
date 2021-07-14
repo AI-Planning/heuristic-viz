@@ -1,9 +1,9 @@
 // Tree Globals
-var stateCounter, graph, treemap, svg, duration, treeData, treeHeight, goTree = true;
+var stateCounter, graph, treemap, svg, duration, treeData, treeHeight, goTree = true, heurMax = 0;
 var root, d3, zoom, viewerWidth, viewerHeight;
 
 // Heuristic globals
-var hSim, svgID, svgCount=1, actions, fluents, fluentPreconditions = {}, formattedActions;
+var hSim, svgID, heursvg, svgCount=1, actions, fluents, fluentPreconditions = {}, formattedActions, heurdata;
 
 // Called when you click 'Go' on the file chooser
 function loadStatespace() {
@@ -182,6 +182,11 @@ function nodeChildrenToggled(d, cb=null) {
             if (cb)
                 cb(d);
         });
+        // Compute the heuristic value of this node
+        graph = makeGraph(d);
+        heurdata = generateHeuristicGraphData(graph);
+        d.data.heuristic_value = autoUpdate(graph, true, false);
+        heurMax = Math.max(d.data.heuristic_value, heurMax);
     }
     else if (d.children) {
         d._children = d.children;
@@ -202,14 +207,13 @@ function infix(orig) {
     return '(' + orig.split('(')[0] + ' ' + orig.split('(')[1].split(')')[0].split(',').join(' ') + ')'
 }
 
-function space_free_check(first, second) {
-    return first.replaceAll(' ', '') == second.replaceAll(' ', '');
+function normalized_check(first, second) {
+    return first.replaceAll(' ', '').toLowerCase() == second.replaceAll(' ', '').toLowerCase();
 }
 
 function successor_node(src, act) {
     for (var i=0; i<src.children.length; i++) {
-        console.log(infix(src.children[i].data.precondition));
-        if (space_free_check(infix(src.children[i].data.precondition), act))
+        if (normalized_check(infix(src.children[i].data.precondition), act))
             return src.children[i];
     }
 }
@@ -253,8 +257,8 @@ function compute_plan() {
                     var index = 0;
                     function _expand(cur_node) {
                         if (index < res.result.plan.length) {
-                            console.log(res.result.plan[index].name);
-                            console.log('i='+index);
+                            // console.log(res.result.plan[index].name);
+                            // console.log('i='+index);
                             if (cur_node.children == null) {
                                 nodeChildrenToggled(cur_node, function(d) {
                                     var act = res.result.plan[index].name
@@ -393,7 +397,7 @@ function update(source){
     nodeUpdate.select('circle.node')
         .attr('r', 10)
         .style("fill", function(d) {
-            return d._children ? "#000080" : "lightsteelblue";;
+            return (d.data.heuristic_value == 0) ? '#FFD700' : d3.interpolateHsl('red','blue')(d.data.heuristic_value / heurMax);
         })
         .attr('cursor', 'pointer');
 
@@ -465,7 +469,9 @@ function diagonal(s, d) {
 
 // Returns a string of formatted html
 function formatTooltip(node) {
-    return node.data.strState.join(' \n');
+    if (node.data.heuristic_value === undefined)
+        node.data.heuristic_value = '??';
+    return "h="+node.data.heuristic_value;
 }
 
 function hoveredOverStateInStatespace(d) {
@@ -604,6 +610,15 @@ function generateHeuristicGraphData(graph) {
     return data;
 }
 
+// Update node labels to reflect value change
+function updateLabels() {
+    // Updates labels to reflect changes in value
+    heursvg.selectAll("text").data(heurdata.nodes)
+        .transition().duration(500)
+        .text((d) => d.name + " Value: " + graph.get(d.name).value)
+        .attr('dx', 3)
+}
+
 // Launches the heuristic visualizer tab, formats data, and initiates the visualization
 function startHeuristicViz(node) {
 
@@ -616,10 +631,21 @@ function startHeuristicViz(node) {
     }
 
     data = generateHeuristicGraphData(graph);
+    heurdata = data;
 
     // Make a new tab for the viz
     window.new_tab('Node', function(editor_name){
-        $('#' +editor_name).html('<div style = "margin:13px 7px;text-align:center"><h2>Heuristic Visualization</h2><div id="heuristic"></div><button onclick="freeze()" style="float:right;margin-left:16px" id ="Freeze">Freeze</button>');
+        var tmp = '';
+        tmp += '<div style = "margin:13px 7px;text-align:center">';
+        tmp += '  <h2>Heuristic Visualization</h2>';
+        tmp += '  <div class="row">';
+        tmp += '    <div id="heuristic" class="col-md-9"></div>';
+        tmp += '    <div id="heuristicbuttons" style="padding:10px" class="col-md-3">';
+        tmp += '      <button onclick="autoUpdate(graph, true, true)" type="button" class="btn btn-success">Compute</button>';
+        tmp += '    </div>';
+        tmp += '  </div>';
+        tmp += '</div>';
+        $('#' +editor_name).html(tmp);
         svgID = editor_name;
     });
 
@@ -627,12 +653,16 @@ function startHeuristicViz(node) {
     var node, link, text;
 
     // Set the dimensions and margins of the diagram
-    var margin = {top: 20, right: 400, bottom: 30, left: 400},
-    width = $('#' + svgID).width() - margin.right - margin.left;
-    height = 1000 - margin.top - margin.bottom;
+    // var margin = {top: 20, right: 400, bottom: 30, left: 400},
+    // width = $('#' + svgID).width() - margin.right - margin.left;
+    // height = 1000 - margin.top - margin.bottom;
+    // Set the dimensions and margins of the diagram
+    var margin = {top: 20, right: 30, bottom: 30, left: 90};
+    var width = $('#statespace').width() - margin.left - margin.right;
+    var height = 700 - margin.top - margin.bottom;
 
     // Init SVG object
-    var svg = d3.select('#' + svgID)
+    heursvg = d3.select('#' + svgID)
         .append("svg")
         .attr("width", width + margin.left + margin.right)
         .attr("height", height + margin.top + margin.bottom)
@@ -640,13 +670,13 @@ function startHeuristicViz(node) {
         .style("margin-left", "30px")
         .on("dblclick.zoom", null)
         .call(d3.zoom().on("zoom", function () {
-            svg.attr("transform", d3.event.transform)
+            heursvg.attr("transform", d3.event.transform)
         }))
         .append("g")
         .attr("transform","translate(" + margin.left + "," + margin.top + ")");
 
     // Initializing the arrow head for links
-    svg.append('defs')
+    heursvg.append('defs')
         .append('marker')
         .attr('id','arrowhead')
         .attr('viewBox', '-0 -5 10 10')
@@ -673,7 +703,7 @@ function startHeuristicViz(node) {
         .on("end", ticked);
 
     // Initialize the D3 graph with generated data
-    link = svg.selectAll(".link")
+    link = heursvg.selectAll(".link")
         .data(data.links)
         .enter()
         .append("line")
@@ -684,7 +714,7 @@ function startHeuristicViz(node) {
 
     link.append("title").text(d => d.type);
 
-    text = svg.selectAll("text")
+    text = heursvg.selectAll("text")
         .data(data.nodes)
         .enter()
         .append("g")
@@ -695,7 +725,7 @@ function startHeuristicViz(node) {
         .attr('dy', -18)
         .attr("text-anchor", "middle");
 
-    node = svg.selectAll('.node')
+    node = heursvg.selectAll('.node')
         .data(data.nodes)
         .enter()
         .append('g')
@@ -767,15 +797,6 @@ function startHeuristicViz(node) {
     function clk(d) {
         // Update node on click
         updateHeuristicNode(d);
-    }
-
-    // Update node labels to reflect value change
-    function updateLabels() {
-        // Updates labels to reflect changes in value
-        svg.selectAll("text").data(data.nodes)
-            .transition().duration(500)
-            .text((d) => d.name + " Value: " + d.value)
-            .attr('dx', 3)
     }
 
     // Returns node color based on type / being the goal node
@@ -982,7 +1003,7 @@ function getAdders(fluentNode, graph){
 }
 
 function updateValue(graph, node, hAdd){
-    var update = false;;
+    var update = false;
     if (graph.get(node).type == 'fluent'){
         updateVal = getUpdatedFluentValue(node, graph);
     }
@@ -994,6 +1015,9 @@ function updateValue(graph, node, hAdd){
         else{
             updateVal= 1 + getMaxPrecondition(node, graph);
         }
+        // Goal node should not have an action cost
+        if (node == 'goal')
+            updateVal -= 1;
 
     }
     if (updateVal < graph.get(node).value){
@@ -1003,23 +1027,23 @@ function updateValue(graph, node, hAdd){
     return [graph, update];
 }
 
-function autoUpdate(graph, hAdd) {
+function autoUpdate(graph, hAdd, hUpdate=true) {
     var update = true;
     var updateData;
     while (update){
         update = false;
-        for(node in graph){
-            currentNode = graph[node];
-            updateData = updateValue(graph, currentNode, hAdd);
+        for(let node of graph.keys()) {
+            updateData = updateValue(graph, node, hAdd);
             graph = updateData[0];
-            if (updateData[1] == true){
+            if (hUpdate)
+                heurdata.nodes[graph.get(node).index].value = graph.get(node).value;
+            if (updateData[1] == true)
                 update = true;
-            }
         }
     }
-    goalIndex = graph.length - 1;
-    console.log(graph[goalIndex].value)
-    return graph[goalIndex].value;
+    if (hUpdate)
+        updateLabels();
+    return graph.get('goal').value;
 }
 
 define(function () {
