@@ -37,7 +37,8 @@ function launchViz(){
       '  <div id="statepanel" class="col-md-3">' +
       '    <div id="statebuttons" style="padding:10px">' +
       '      <button onclick="show_hadd()" type="button" class="btn btn-info">hadd</button>' +
-      '      <button onclick="compute_plan()" type="button" class="btn btn-success">Plan</button>' +
+      '      <button onclick="compute_plan()" type="button" class="btn btn-success">Plan</button><br /><br />' +
+      '      <button onclick="compute_all_heur()" type="button" class="btn btn-primary">Compute All Heuristics</button>' +
       '    </div>' +
       '    <div id="statename" style="clear:both">State</div>' +
       '    <div id="statedetails" style="padding:10px"></div>' +
@@ -165,8 +166,24 @@ function convertNode(node) {
 
 function nodeSelected(d) {
     window.current_state_node = d;
-    $('#statename').text(d.data.name);
-    $('#statedetails').html('<pre style="text-align: left">'+d.data.strState.sort().join('\n')+'</pre>');
+    var action_desc = "";
+    if (d.data.precondition)
+        action_desc = '<br />' + infix(d.data.precondition.toLowerCase());
+    $('#statename').html(d.data.name + action_desc);
+    var fluents = [];
+    d.data.strState.forEach(f => {
+        fluents.push(infix(f).toLowerCase());
+    });
+    $('#statedetails').html('<pre style="text-align: left">'+fluents.sort().join('\n')+'</pre>');
+
+    // Compute the heuristic value of this node
+    if ((d.data.heuristic_value === undefined) || (d.data.heuristic_value == '??')) {
+        graph = makeGraph(d);
+        heurdata = generateHeuristicGraphData(graph);
+        d.data.heuristic_value = autoUpdate(graph, true, false);
+        heurMax = Math.max(d.data.heuristic_value, heurMax);
+        update(d);
+    }
 }
 
 function nodeChildrenToggled(d, cb=null) {
@@ -182,11 +199,6 @@ function nodeChildrenToggled(d, cb=null) {
             if (cb)
                 cb(d);
         });
-        // Compute the heuristic value of this node
-        graph = makeGraph(d);
-        heurdata = generateHeuristicGraphData(graph);
-        d.data.heuristic_value = autoUpdate(graph, true, false);
-        heurMax = Math.max(d.data.heuristic_value, heurMax);
     }
     else if (d.children) {
         d._children = d.children;
@@ -216,6 +228,27 @@ function successor_node(src, act) {
         if (normalized_check(infix(src.children[i].data.precondition), act))
             return src.children[i];
     }
+}
+
+async function compute_all_heur() {
+
+    toastr.info("Computing heuristic values...");
+
+    // Delaying just to get the toastr shown
+    setTimeout(function() {
+        // Compute heuristic values for all nodes
+        // and update the tree
+        treemap(root).descendants().forEach(d => {
+            if ((d.data.heuristic_value === undefined) || (d.data.heuristic_value == '??')) {
+                graph = makeGraph(d);
+                heurdata = generateHeuristicGraphData(graph);
+                d.data.heuristic_value = autoUpdate(graph, true, false);
+                heurMax = Math.max(d.data.heuristic_value, heurMax);
+            }
+        });
+        toastr.success("Done computing heuristic values!")
+        update(root);
+    }, 400);
 }
 
 function compute_plan() {
@@ -255,6 +288,7 @@ function compute_plan() {
                 if (res['status'] === 'ok') {
                     toastr.success('Plan found!');
                     var index = 0;
+                    var time_per_reveal = Math.min(300, (4000.0 / res.result.plan.length));
                     function _expand(cur_node) {
                         if (index < res.result.plan.length) {
                             // console.log(res.result.plan[index].name);
@@ -263,7 +297,7 @@ function compute_plan() {
                                 nodeChildrenToggled(cur_node, function(d) {
                                     var act = res.result.plan[index].name
                                     index += 1;
-                                    setTimeout(_expand, 300, successor_node(cur_node, act));
+                                    setTimeout(_expand, time_per_reveal, successor_node(cur_node, act));
                                 });
                             }
                         }
@@ -430,6 +464,25 @@ function update(source){
         .attr('d', function(d){
             var o = {x: source.x0, y: source.y0}
             return diagonal(o, o)})
+        .on('mousemove', function(d) {
+            Tooltip
+                .html(formatTooltip(d, false))
+                .style("left", (d3.event.pageX - 400) + "px")
+                .style("top", (d3.event.pageY - 50) + "px");
+        })
+        .on('mouseleave', function(d) {
+            Tooltip
+                .style("opacity", 0)
+            d3.select(this)
+                .style("stroke", "#ccc");
+        })
+        .on('mouseover', function(d) {
+            Tooltip
+                .style("opacity", 1)
+            d3.select(this)
+                .style("stroke", "black")
+                .style("opacity", 1);
+        })
         .style("fill", "none")
         .style("stroke", "#ccc")
         .style("stroke-width", "2px");
@@ -468,15 +521,21 @@ function diagonal(s, d) {
 }
 
 // Returns a string of formatted html
-function formatTooltip(node) {
-    if (node.data.heuristic_value === undefined)
-        node.data.heuristic_value = '??';
-    return "h="+node.data.heuristic_value;
+function formatTooltip(d, node=true) {
+    if (node) {
+        if (d.data.heuristic_value === undefined)
+            d.data.heuristic_value = '??';
+        return "h="+d.data.heuristic_value;
+    } else {
+        console.log(infix(d.data.precondition).toLowerCase());
+        return infix(d.data.precondition).toLowerCase();
+    }
 }
 
 function hoveredOverStateInStatespace(d) {
     console.log("Hovered over state ", d, " in the state space.");
 }
+
 
 /*
 --------------------------------------------------------------------------------
