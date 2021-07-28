@@ -5,6 +5,8 @@ var root, d3, zoom, viewerWidth, viewerHeight;
 // Heuristic globals
 var hSim, svgID, heursvg, svgCount=1, actions, fluents, fluentPreconditions = {}, formattedActions, heurdata;
 
+var UNFOLD_LIMIT = 15;
+
 // Called when you click 'Go' on the file chooser
 function loadStatespace() {
 
@@ -28,7 +30,7 @@ function loadStatespace() {
 }
 
 function launchViz(){
-    window.new_tab('Viz2.0', function(editor_name){
+    window.new_tab('Statespace', function(editor_name){
       $('#' +editor_name).html('<div style = "margin:13px 26px;text-align:center"><h2>Heuristic Search Vizualization</h2>' +
       //'<button onclick="zoomIn()" style="float:right;margin-left:16px" id ="ZoomIn">ZoomIn</button>' +
       //'<button onclick="zoomOut()" style="float:right;margin-left:16px" id ="ZoomOut">ZoomOut</button>' +
@@ -287,6 +289,13 @@ function compute_plan() {
             .done(function (res) {
                 if (res['status'] === 'ok') {
                     toastr.success('Plan found!');
+
+                    // Restrict the plan length if it is larger than UNFOLD_LIMIT
+                    if (res.result.plan.length > UNFOLD_LIMIT) {
+                        toastr.info("Plan too long, only the first " + UNFOLD_LIMIT + " actions will be used.");
+                        res.result.plan = res.result.plan.slice(0, UNFOLD_LIMIT);
+                    }
+
                     var index = 0;
                     var time_per_reveal = Math.min(300, (4000.0 / res.result.plan.length));
                     function _expand(cur_node) {
@@ -527,7 +536,7 @@ function formatTooltip(d, node=true) {
             d.data.heuristic_value = '??';
         return "h="+d.data.heuristic_value;
     } else {
-        console.log(infix(d.data.precondition).toLowerCase());
+        // console.log(infix(d.data.precondition).toLowerCase());
         return infix(d.data.precondition).toLowerCase();
     }
 }
@@ -693,7 +702,7 @@ function startHeuristicViz(node) {
     heurdata = data;
 
     // Make a new tab for the viz
-    window.new_tab('Node', function(editor_name){
+    window.new_tab('Heuristic Computation', function(editor_name){
         var tmp = '';
         tmp += '<div style = "margin:13px 7px;text-align:center">';
         tmp += '  <h2>Heuristic Visualization</h2>';
@@ -1031,7 +1040,7 @@ function getSumOfPreconditions(actionNode, graph) {
         // Check if the precondition is in the graph (tarski ignores irrelevant ones)
         if(fluents.has(precondition)) {
             sum += graph.get(precondition).value;
-            console.log(graph.get(precondition).value);
+            // console.log(graph.get(precondition).value);
         }
     });
     return sum;
@@ -1105,12 +1114,21 @@ function autoUpdate(graph, hAdd, hUpdate=true) {
     return graph.get('goal').value;
 }
 
+function openHeuristicViz() {
+    if (window.grounderLoaded) {
+        // If the page is loaded, open the visualization
+        chooseFiles('heurViz');
+    } else {
+        window.toastr.warning("Heuristic visualization not yet fully configured.");
+    }
+}
+
 define(function () {
     window.d3_loaded = false;
   return {
       name: "Heuristic Viz",
-      author: "Caitlin Aspinall, Cam Cunningham & Ellie Sekine",
-      email: "16cea5@queensu.com",
+      author: "Caitlin Aspinall, Cam Cunningham, Ellie Sekine, Christian Muise",
+      email: "christian.muise@gmail.com",
       description: "Heuristic Visualization",
 
       initialize: function() {
@@ -1124,11 +1142,11 @@ define(function () {
         initializeGrounding();
 
         // Adds menu button that allows for choosing files
-        window.add_menu_button('Viz', 'vizMenuItem', 'glyphicon-tower',"chooseFiles('viz')");
+        window.add_menu_button('HeurViz', 'heurVizMenuItem', 'glyphicon-tower',"openHeuristicViz()");
         window.inject_styles('.viz_display {padding: 20px 0px 0px 40px;}')
 
         // Register this as a user of the file chooser interface
-        window.register_file_chooser('viz',
+        window.register_file_chooser('heurViz',
         {
             showChoice: function() {
                 // Button name, Description
@@ -1142,8 +1160,8 @@ define(function () {
 
         disable: function() {
           // This is called whenever the plugin is disabled
-          window.toastr.warning("Plug in disabled")
-          window.remove_menu_button("vizMenuItem");
+          window.toastr.warning("Plugin disabled")
+          window.remove_menu_button("heurVizMenuItem");
         },
 
         save: function() {
