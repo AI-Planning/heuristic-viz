@@ -265,7 +265,7 @@ function compute_plan() {
     var open_brackets = 0;
 
     for (var i=0; i<old_prob.length; i++) {
-        
+
         if (old_prob.substring(i, i+5) == ":init") {
             new_prob += ":init " + fluents.join('\n') + ')\n';
             open_brackets = 1;
@@ -391,9 +391,18 @@ function update(source){
             .style("stroke", "none");
     }
 
+    var getColor = function (d) {
+        if (d.data.heuristic_value == 0)
+            return '#FFD700'; // gold
+        else if (d.data.heuristic_value == Number.POSITIVE_INFINITY)
+            return '#000000'; // black
+        else
+            return d3.interpolateHsl('red', 'blue')(d.data.heuristic_value / heurMax);
+    }
+
     // Update the nodes...
     var node = svg.selectAll('g.node')
-        .data(nodes, function(d) {return d.data.name; })
+        .data(nodes, function(d) {return d.data.name;})
 
     // Enter any new modes at the parent's previous position.
     var nodeEnter = node.enter().append('g')
@@ -439,9 +448,7 @@ function update(source){
     // Update the node attributes and style
     nodeUpdate.select('circle.node')
         .attr('r', 10)
-        .style("fill", function(d) {
-            return (d.data.heuristic_value == 0) ? '#FFD700' : d3.interpolateHsl('red','blue')(d.data.heuristic_value / heurMax);
-        })
+        .style("fill", getColor)
         .attr('cursor', 'pointer');
 
 
@@ -562,7 +569,7 @@ function hoveredOverStateInStatespace(d) {
 function makeGraph(state){
     var graph = new Map();
     let index = 1;
-    
+
     fluents = getGroundedFluents();
     actions = getGroundedActions();
 
@@ -650,13 +657,13 @@ function generateHeuristicGraphData(graph) {
         fluentPreconditions[fluent] = [];
     });
 
-    // Populating data with actions, and links with their respective connections 
-    // based on the actions preconditions and effects. 
+    // Populating data with actions, and links with their respective connections
+    // based on the actions preconditions and effects.
     Array.from(actions.keys()).forEach(action => {
         data.nodes.push({"id":action, "name":action, "type":"action", "value":graph.get(action).value});
         actions.get(action).get('preconditions').forEach(pcond => {
             if(fluents.has(pcond)) {
-                data.links.push({"source":pcond, "target":action});   
+                data.links.push({"source":pcond, "target":action});
             }
         });
         actions.get(action).get('effects').forEach(effect => {
