@@ -313,6 +313,13 @@ function compute_plan() {
                                 setTimeout(_expand, time_per_reveal, successor_node(cur_node, act));
                             });
                         }
+                    } else {
+                        // Compute the heuristic for the current node (presumably the goal)
+                        graph = makeGraph(cur_node);
+                        heurdata = generateHeuristicGraphData(graph);
+                        cur_node.data.heuristic_value = autoUpdate(graph, true, false);
+                        heurMax = Math.max(cur_node.data.heuristic_value, heurMax);
+                        update(root);
                     }
                 }
                 _expand(window.current_state_node);
