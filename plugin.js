@@ -3,7 +3,7 @@ var stateCounter, graph, treemap, svg, duration, treeData, treeHeight, goTree = 
 var root, d3, zoom, viewerWidth, viewerHeight;
 
 // Heuristic globals
-var hSim, svgID, heursvg, svgCount=1, actions, fluents, fluentPreconditions = {}, formattedActions, heurdata;
+var hSim, svgID, heursvg, svgCount = 1, actions, fluents, fluentPreconditions = {}, formattedActions, heurdata;
 
 var UNFOLD_LIMIT = 15;
 
@@ -22,32 +22,32 @@ function loadStatespace() {
     $('#plannerURLInput').show();
 
     // Ground the domain and problem
-    ground(domain, problem).then(function(result) {
-        treeData = {"name":"root", "children":[], "state":result.state, "strState":result.strState, "precondition":null, "loadedChildren":false};
+    ground(domain, problem).then(function (result) {
+        treeData = { "name": "root", "children": [], "state": result.state, "strState": result.strState, "precondition": null, "loadedChildren": false };
         stateCounter = 1;
         launchViz();
     });
 }
 
-function launchViz(){
-    window.new_tab('Statespace', function(editor_name){
-      $('#' +editor_name).html('<div style = "margin:13px 26px;text-align:center"><h2>Heuristic Search Vizualization</h2>' +
-      //'<button onclick="zoomIn()" style="float:right;margin-left:16px" id ="ZoomIn">ZoomIn</button>' +
-      //'<button onclick="zoomOut()" style="float:right;margin-left:16px" id ="ZoomOut">ZoomOut</button>' +
-      '<div class="row">' +
-      '  <div id="statespace" class="col-md-9"></div>' +
-      '  <div id="statepanel" class="col-md-3">' +
-      '    <div id="statebuttons" style="padding:10px">' +
-      '      <button onclick="show_hadd()" type="button" class="btn btn-info">hadd</button>' +
-      '      <button onclick="compute_plan()" type="button" class="btn btn-success">Plan</button><br /><br />' +
-      '      <button onclick="compute_all_heur()" type="button" class="btn btn-primary">Compute All Heuristics</button>' +
-      '    </div>' +
-      '    <div id="statename" style="clear:both">State</div>' +
-      '    <div id="statedetails" style="padding:10px"></div>' +
-      '  </div>' +
-      '</div>' +
-      '<node circle style ="fill:black;stroke:black;stroke-width:3px;></node circle>' +
-      '<p id="hv-output"></p>');
+function launchViz() {
+    window.new_tab('Statespace', function (editor_name) {
+        $('#' + editor_name).html('<div style = "margin:13px 26px;text-align:center"><h2>Heuristic Search Vizualization</h2>' +
+            //'<button onclick="zoomIn()" style="float:right;margin-left:16px" id ="ZoomIn">ZoomIn</button>' +
+            //'<button onclick="zoomOut()" style="float:right;margin-left:16px" id ="ZoomOut">ZoomOut</button>' +
+            '<div class="row">' +
+            '  <div id="statespace" class="col-md-9"></div>' +
+            '  <div id="statepanel" class="col-md-3">' +
+            '    <div id="statebuttons" style="padding:10px">' +
+            '      <button onclick="show_hadd()" type="button" class="btn btn-info">hadd</button>' +
+            '      <button onclick="compute_plan()" type="button" class="btn btn-success">Plan</button><br /><br />' +
+            '      <button onclick="compute_all_heur()" type="button" class="btn btn-primary">Compute All Heuristics</button>' +
+            '    </div>' +
+            '    <div id="statename" style="clear:both">State</div>' +
+            '    <div id="statedetails" style="padding:10px"></div>' +
+            '  </div>' +
+            '</div>' +
+            '<node circle style ="fill:black;stroke:black;stroke-width:3px;></node circle>' +
+            '<p id="hv-output"></p>');
     });
     makeTree();
 }
@@ -55,16 +55,16 @@ function launchViz(){
 // Generates the SVG object, and loads the tree data into a d3 style tree
 function makeTree() {
     // Prevents the creation of more than one tree
-    if (goTree){
+    if (goTree) {
         // Set the dimensions and margins of the diagram
-        var margin = {top: 20, right: 30, bottom: 30, left: 90};
+        var margin = { top: 20, right: 30, bottom: 30, left: 90 };
         var width = $('#statespace').width() - margin.left - margin.right;
         var height = 700 - margin.top - margin.bottom;
 
         // Initialize d3 zoom
-        zoom = d3.zoom().on('zoom', function() {
-                    svg.attr('transform', d3.event.transform);
-                    })
+        zoom = d3.zoom().on('zoom', function () {
+            svg.attr('transform', d3.event.transform);
+        })
 
         // Declaring the SVG object, init attributes
         svg = d3.select("#statespace").append("svg")
@@ -74,9 +74,9 @@ function makeTree() {
             .call(zoom)
             .on("dblclick.zoom", null)
             .append("g")
-            .attr("transform", "translate("+ margin.left + "," + margin.top + ")")
+            .attr("transform", "translate(" + margin.left + "," + margin.top + ")")
             .append("g")
-            .attr("transform", "translate("+ (width / 2) + "," + margin.top + ")");
+            .attr("transform", "translate(" + (width / 2) + "," + margin.top + ")");
 
         // create the tooltip
         d3.select("#statespace")
@@ -96,50 +96,50 @@ function makeTree() {
         treemap = d3.tree().size([height, width]);
 
         // Assigns parent, children, height, depth
-        root = d3.hierarchy(treeData, function(d) { return d.children; });
+        root = d3.hierarchy(treeData, function (d) { return d.children; });
         root.x0 = height / 2;
         root.y0 = 0;
 
         // Loads children of root
-        loadData(root, function(result) {
+        loadData(root, function (result) {
             convertNode(result);
             update(result);
             // Preventing multiple trees
             goTree = false;
         });
-  }
+    }
 }
 
 // d3 zoom in
-function zoomIn(){
-  zoom.scaleBy(svg.transition().duration(750), 1.3);
+function zoomIn() {
+    zoom.scaleBy(svg.transition().duration(750), 1.3);
 }
 
 // d3 zoom out
-function zoomOut(){
-  zoom.scaleBy(svg, 1 / 1.3);
+function zoomOut() {
+    zoom.scaleBy(svg, 1 / 1.3);
 }
 
 // Loads children of a supplied node
 function loadData(node, callback) {
-    if(!node.loadedChildren) {
+    if (!node.loadedChildren) {
         const state = node.data.state;
         getChildStates(state)
-        .then(data => {
-            for (let i = 0; i < data['states'].length; i++) {
-                if(node.data.children) {
-                    // Create data
-                    const newName = "State " + stateCounter;
-                    stateCounter += 1;
-                    const newState = {"name":newName, "children":[], "state":data.states[i], "strState":data.stringStates[i], "precondition":data.actions[i].toString(), "loadedChildren":false};
-                    node.data.children.push(newState);
+            .then(data => {
+                for (let i = 0; i < data['states'].length; i++) {
+                    if (node.data.children) {
+                        // Create data
+                        const newName = "State " + stateCounter;
+                        stateCounter += 1;
+                        const newState = { "name": newName, "children": [], "state": data.states[i], "strState": data.stringStates[i], "precondition": data.actions[i].toString(), "loadedChildren": false };
+                        node.data.children.push(newState);
+                    }
                 }
-            }
-            node.loadedChildren = true;
-            // Call the callback function with the node that contains
-            // the newly loaded children
-            callback(node);
-        });
+                node.loadedChildren = true;
+                // Call the callback function with the node that contains
+                // the newly loaded children
+                callback(node);
+            });
     }
 }
 
@@ -176,7 +176,7 @@ function nodeSelected(d) {
     d.data.strState.forEach(f => {
         fluents.push(infix(f).toLowerCase());
     });
-    $('#statedetails').html('<pre style="text-align: left">'+fluents.sort().join('\n')+'</pre>');
+    $('#statedetails').html('<pre style="text-align: left">' + fluents.sort().join('\n') + '</pre>');
 
     // Compute the heuristic value of this node
     if ((d.data.heuristic_value === undefined) || (d.data.heuristic_value == '??')) {
@@ -188,10 +188,10 @@ function nodeSelected(d) {
     }
 }
 
-function nodeChildrenToggled(d, cb=null) {
+function nodeChildrenToggled(d, cb = null) {
     if (d3.event && d3.event.defaultPrevented) return;
 
-    if(!d.loadedChildren && !d.children) {
+    if (!d.loadedChildren && !d.children) {
         // Load children, expand
         loadData(d, result => {
             convertNode(d);
@@ -226,7 +226,7 @@ function normalized_check(first, second) {
 }
 
 function successor_node(src, act) {
-    for (var i=0; i<src.children.length; i++) {
+    for (var i = 0; i < src.children.length; i++) {
         if (normalized_check(infix(src.children[i].data.precondition), act))
             return src.children[i];
     }
@@ -237,7 +237,7 @@ async function compute_all_heur() {
     toastr.info("Computing heuristic values...");
 
     // Delaying just to get the toastr shown
-    setTimeout(function() {
+    setTimeout(function () {
         // Compute heuristic values for all nodes
         // and update the tree
         treemap(root).descendants().forEach(d => {
@@ -264,9 +264,9 @@ function compute_plan() {
 
     var open_brackets = 0;
 
-    for (var i=0; i<old_prob.length; i++) {
+    for (var i = 0; i < old_prob.length; i++) {
 
-        if (old_prob.substring(i, i+5) == ":init") {
+        if (old_prob.substring(i, i + 5) == ":init") {
             new_prob += ":init " + fluents.join('\n') + ')\n';
             open_brackets = 1;
         }
@@ -281,48 +281,52 @@ function compute_plan() {
         }
     }
 
-    $.ajax( {url: "https://solver.planning.domains/solve-and-validate",
+    $.ajax({
+        url: "https://solver.planning.domains/solve-and-validate",
         type: "POST",
         contentType: 'application/json',
-        data: JSON.stringify({"domain": window.heuristicVizDomain,
-                              "problem": new_prob})})
-            .done(function (res) {
-                if (res['status'] === 'ok') {
-                    toastr.success('Plan found!');
+        data: JSON.stringify({
+            "domain": window.heuristicVizDomain,
+            "problem": new_prob
+        })
+    })
+        .done(function (res) {
+            if (res['status'] === 'ok') {
+                toastr.success('Plan found!');
 
-                    // Restrict the plan length if it is larger than UNFOLD_LIMIT
-                    if (res.result.plan.length > UNFOLD_LIMIT) {
-                        toastr.info("Plan too long, only the first " + UNFOLD_LIMIT + " actions will be used.");
-                        res.result.plan = res.result.plan.slice(0, UNFOLD_LIMIT);
-                    }
+                // Restrict the plan length if it is larger than UNFOLD_LIMIT
+                if (res.result.plan.length > UNFOLD_LIMIT) {
+                    toastr.info("Plan too long, only the first " + UNFOLD_LIMIT + " actions will be used.");
+                    res.result.plan = res.result.plan.slice(0, UNFOLD_LIMIT);
+                }
 
-                    var index = 0;
-                    var time_per_reveal = Math.min(300, (4000.0 / res.result.plan.length));
-                    function _expand(cur_node) {
-                        if (index < res.result.plan.length) {
-                            // console.log(res.result.plan[index].name);
-                            // console.log('i='+index);
-                            if (cur_node.children == null) {
-                                nodeChildrenToggled(cur_node, function(d) {
-                                    var act = res.result.plan[index].name
-                                    index += 1;
-                                    setTimeout(_expand, time_per_reveal, successor_node(cur_node, act));
-                                });
-                            }
+                var index = 0;
+                var time_per_reveal = Math.min(300, (4000.0 / res.result.plan.length));
+                function _expand(cur_node) {
+                    if (index < res.result.plan.length) {
+                        // console.log(res.result.plan[index].name);
+                        // console.log('i='+index);
+                        if (cur_node.children == null) {
+                            nodeChildrenToggled(cur_node, function (d) {
+                                var act = res.result.plan[index].name
+                                index += 1;
+                                setTimeout(_expand, time_per_reveal, successor_node(cur_node, act));
+                            });
                         }
                     }
-                    _expand(window.current_state_node);
-                } else {
-                    toastr.error('Planning failed.');
                 }
+                _expand(window.current_state_node);
+            } else {
+                toastr.error('Planning failed.');
             }
+        }
         );
 }
 
 
 
 // Single click on node: update the info shown for a node
-function click(d){
+function click(d) {
     nodeSelected(d);
 }
 
@@ -338,15 +342,15 @@ function show_hadd() {
 
 // Collapses the node and all it's children
 function collapse(d) {
-  if(d.children) {
-    d._children = d.children
-    d._children.forEach(collapse)
-    d.children = null
-  }
+    if (d.children) {
+        d._children = d.children
+        d._children.forEach(collapse)
+        d.children = null
+    }
 }
 
 // Updates the tree: drawing links, nodes, and tooltip
-function update(source){
+function update(source) {
     //Assigns the x and y position for the nodes
     var treeData = treemap(root);
     // Compute the new tree layout.
@@ -354,9 +358,9 @@ function update(source){
         links = treeData.descendants().slice(1);
 
     // Normalize for fixed-depth.
-    nodes.forEach(function(d) {
+    nodes.forEach(function (d) {
         if (d.depth > treeHeight)
-        treeHeight = d.depth;
+            treeHeight = d.depth;
         d.y = d.depth * 130;
         if (d.data.name === "goal state") {
             while (d !== root) {
@@ -370,7 +374,7 @@ function update(source){
     var Tooltip = d3.select(".tooltip");
 
     // Three function that change the tooltip when user hover / move / leave a cell
-    var mouseover = function(d) {
+    var mouseover = function (d) {
         Tooltip
             .style("opacity", 1)
         d3.select(this)
@@ -378,13 +382,13 @@ function update(source){
             .style("opacity", 1);
         hoveredOverStateInStatespace(d);
     }
-    var mousemove = function(d) {
+    var mousemove = function (d) {
         Tooltip
             .html(formatTooltip(d))
             .style("left", (d3.event.pageX - 400) + "px")
             .style("top", (d3.event.pageY - 50) + "px");
     }
-    var mouseleave = function(d) {
+    var mouseleave = function (d) {
         Tooltip
             .style("opacity", 0)
         d3.select(this)
@@ -402,16 +406,16 @@ function update(source){
 
     // Update the nodes...
     var node = svg.selectAll('g.node')
-        .data(nodes, function(d) {return d.data.name;})
+        .data(nodes, function (d) { return d.data.name; })
 
     // Enter any new modes at the parent's previous position.
     var nodeEnter = node.enter().append('g')
         .attr('class', 'node')
-        .attr("transform", function(d) {
+        .attr("transform", function (d) {
             return "translate(" + source.y0 + "," + source.x0 + ")";
         })
         .on('click', click)
-        .on('dblclick',dblclick)
+        .on('dblclick', dblclick)
         .on("mouseover", mouseover)
         .on("mousemove", mousemove)
         .on("mouseleave", mouseleave);
@@ -441,7 +445,7 @@ function update(source){
     // Transition to the proper position for the node
     nodeUpdate.transition()
         .duration(duration)
-        .attr("transform", function(d) {
+        .attr("transform", function (d) {
             return "translate(" + d.y + "," + d.x + ")";
         });
 
@@ -455,7 +459,7 @@ function update(source){
     // Remove any exiting nodes
     var nodeExit = node.exit().transition()
         .duration(duration)
-        .attr("transform", function(d) {
+        .attr("transform", function (d) {
             return "translate(" + source.y + "," + source.x + ")";
         })
         .remove();
@@ -472,27 +476,28 @@ function update(source){
 
     // Update the links...
     var link = svg.selectAll('path.link')
-        .data(links, function(d) { return d.data.name; });
+        .data(links, function (d) { return d.data.name; });
 
     // Enter any new links at the parent's previous position.
     var linkEnter = link.enter().insert('path', "g")
         .attr("class", "link")
-        .attr('d', function(d){
-            var o = {x: source.x0, y: source.y0}
-            return diagonal(o, o)})
-        .on('mousemove', function(d) {
+        .attr('d', function (d) {
+            var o = { x: source.x0, y: source.y0 }
+            return diagonal(o, o)
+        })
+        .on('mousemove', function (d) {
             Tooltip
                 .html(formatTooltip(d, false))
                 .style("left", (d3.event.pageX - 400) + "px")
                 .style("top", (d3.event.pageY - 50) + "px");
         })
-        .on('mouseleave', function(d) {
+        .on('mouseleave', function (d) {
             Tooltip
                 .style("opacity", 0)
             d3.select(this)
                 .style("stroke", "#ccc");
         })
-        .on('mouseover', function(d) {
+        .on('mouseover', function (d) {
             Tooltip
                 .style("opacity", 1)
             d3.select(this)
@@ -509,19 +514,19 @@ function update(source){
     // Transition back to the parent element position
     linkUpdate.transition()
         .duration(duration)
-        .attr('d', function(d){ return diagonal(d, d.parent) });
+        .attr('d', function (d) { return diagonal(d, d.parent) });
 
     // Remove any exiting links
     var linkExit = link.exit().transition()
         .duration(duration)
-        .attr('d', function(d) {
-            var o = {x: source.x, y: source.y}
+        .attr('d', function (d) {
+            var o = { x: source.x, y: source.y }
             return diagonal(o, o)
         })
         .remove();
 
     // Store the old positions for transition.
-    nodes.forEach(function(d){
+    nodes.forEach(function (d) {
         d.x0 = d.x;
         d.y0 = d.y;
     });
@@ -537,11 +542,11 @@ function diagonal(s, d) {
 }
 
 // Returns a string of formatted html
-function formatTooltip(d, node=true) {
+function formatTooltip(d, node = true) {
     if (node) {
         if (d.data.heuristic_value === undefined)
             d.data.heuristic_value = '??';
-        return "h="+d.data.heuristic_value;
+        return "h=" + d.data.heuristic_value;
     } else {
         // console.log(infix(d.data.precondition).toLowerCase());
         return infix(d.data.precondition).toLowerCase();
@@ -566,14 +571,14 @@ function hoveredOverStateInStatespace(d) {
 */
 
 // Make graph function, returns false if the problem is not a legal version for the heuristic
-function makeGraph(state){
+function makeGraph(state) {
     var graph = new Map();
     let index = 1;
 
     fluents = getGroundedFluents();
     actions = getGroundedActions();
 
-    if(actions == false) {
+    if (actions == false) {
         // Precondition has a negative, cannot compute heuristic, return
         return false;
     }
@@ -588,7 +593,7 @@ function makeGraph(state){
 function formatActions(actions) {
     formattedActions = [];
     Array.from(actions.preconditions.keys()).forEach(action => {
-        let newAction = {"action":action, "preconditions":[], "effects":[], "value":0};
+        let newAction = { "action": action, "preconditions": [], "effects": [], "value": 0 };
         actions.preconditions.get(action).forEach(pcond => {
             newAction.preconditions.push(pcond);
         });
@@ -605,17 +610,17 @@ function generateFluentNodes(state, graph, index) {
     // Have to check if this fluent is in the state to initialize (do this after)
     fluents.forEach(fluent => {
         // fluent.preconditions = fluentPreconditions[fluent.]
-        if(state.data.strState.includes(fluent)) {
+        if (state.data.strState.includes(fluent)) {
             graph.set(fluent, {
-                'type':'fluent',
-                'value':0,
-                'index':index,
+                'type': 'fluent',
+                'value': 0,
+                'index': index,
             });
         } else {
             graph.set(fluent, {
-                'type':'fluent',
-                'value':Number.POSITIVE_INFINITY,
-                'index':index,
+                'type': 'fluent',
+                'value': Number.POSITIVE_INFINITY,
+                'index': index,
             });
         }
         index += 1;
@@ -626,8 +631,8 @@ function generateActionNodes(graph, index) {
     Array.from(actions.keys()).forEach(action => {
         actionData = actions.get(action);
         graph.set(action, {
-            'type':'action',
-            'value':Number.POSITIVE_INFINITY,
+            'type': 'action',
+            'value': Number.POSITIVE_INFINITY,
             'preconditions': actionData.get('preconditions'),
             'effects': actionData.get('effects'),
             'index': index
@@ -638,9 +643,9 @@ function generateActionNodes(graph, index) {
 
 function generateGoalNode(graph, index) {
     goalNode = {
-        'type' : 'goal' ,
+        'type': 'goal',
         'object': 'goal',
-        'value':Number.POSITIVE_INFINITY,
+        'value': Number.POSITIVE_INFINITY,
         'preconditions': convertStateToArray(getGoalState()),
         'effects': null,
         'index': index
@@ -649,37 +654,37 @@ function generateGoalNode(graph, index) {
 }
 
 function generateHeuristicGraphData(graph) {
-    var data = {"nodes":[], "links":[]};
+    var data = { "nodes": [], "links": [] };
 
     // Populating data with fluents
     fluents.forEach(fluent => {
-        data.nodes.push({"id":fluent, "name":fluent, "type":"fluent", "value":graph.get(fluent).value});
+        data.nodes.push({ "id": fluent, "name": fluent, "type": "fluent", "value": graph.get(fluent).value });
         fluentPreconditions[fluent] = [];
     });
 
     // Populating data with actions, and links with their respective connections
     // based on the actions preconditions and effects.
     Array.from(actions.keys()).forEach(action => {
-        data.nodes.push({"id":action, "name":action, "type":"action", "value":graph.get(action).value});
+        data.nodes.push({ "id": action, "name": action, "type": "action", "value": graph.get(action).value });
         actions.get(action).get('preconditions').forEach(pcond => {
-            if(fluents.has(pcond)) {
-                data.links.push({"source":pcond, "target":action});
+            if (fluents.has(pcond)) {
+                data.links.push({ "source": pcond, "target": action });
             }
         });
         actions.get(action).get('effects').forEach(effect => {
-            if(fluents.has(effect)) {
+            if (fluents.has(effect)) {
                 fluentPreconditions[effect].push(action);
-                data.links.push({"source":action, "target":effect});
+                data.links.push({ "source": action, "target": effect });
             }
         });
     });
 
     // Adding goal node
-    data.nodes.push({"id":'goal', "name":'goal', "type":"goal", "value":graph.get('goal').value});
+    data.nodes.push({ "id": 'goal', "name": 'goal', "type": "goal", "value": graph.get('goal').value });
 
     // Adding goal links
     graph.get('goal').preconditions.forEach(goalPrecondtion => {
-        data.links.push({"source":goalPrecondtion, "target":'goal'});
+        data.links.push({ "source": goalPrecondtion, "target": 'goal' });
     });
 
     return data;
@@ -699,7 +704,7 @@ function startHeuristicViz(node) {
 
     graph = makeGraph(node);
 
-    if(graph == false) {
+    if (graph == false) {
         // Cannot make the heuristic graph, throw err
         window.toastr.error("Problem needs to be in STRIPS format for heuristic visualization.");
         return;
@@ -709,7 +714,7 @@ function startHeuristicViz(node) {
     heurdata = data;
 
     // Make a new tab for the viz
-    window.new_tab('Heuristic Computation', function(editor_name){
+    window.new_tab('Heuristic Computation', function (editor_name) {
         var tmp = '';
         tmp += '<div style = "margin:13px 7px;text-align:center">';
         tmp += '  <h2>Heuristic Visualization</h2>';
@@ -720,7 +725,7 @@ function startHeuristicViz(node) {
         tmp += '    </div>';
         tmp += '  </div>';
         tmp += '</div>';
-        $('#' +editor_name).html(tmp);
+        $('#' + editor_name).html(tmp);
         svgID = editor_name;
     });
 
@@ -732,7 +737,7 @@ function startHeuristicViz(node) {
     // width = $('#' + svgID).width() - margin.right - margin.left;
     // height = 1000 - margin.top - margin.bottom;
     // Set the dimensions and margins of the diagram
-    var margin = {top: 20, right: 30, bottom: 30, left: 90};
+    var margin = { top: 20, right: 30, bottom: 30, left: 90 };
     var width = $('#statespace').width() - margin.left - margin.right;
     var height = 700 - margin.top - margin.bottom;
 
@@ -748,28 +753,28 @@ function startHeuristicViz(node) {
             heursvg.attr("transform", d3.event.transform)
         }))
         .append("g")
-        .attr("transform","translate(" + margin.left + "," + margin.top + ")");
+        .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
 
     // Initializing the arrow head for links
     heursvg.append('defs')
         .append('marker')
-        .attr('id','arrowhead')
+        .attr('id', 'arrowhead')
         .attr('viewBox', '-0 -5 10 10')
         .attr('refX', 20)
         .attr('refY', 0)
         .attr('orient', 'auto')
         .attr('markerWidth', 8)
         .attr('markerHeight', 14)
-        .attr('xoverflow','visible')
+        .attr('xoverflow', 'visible')
         .append('svg:path')
         .attr('d', 'M 0,-5 L 10 ,0 L 0,5')
         .attr('fill', '#bc5090')
-        .style('stroke','none');
+        .style('stroke', 'none');
 
     // Initializing the force that gets applied to the network
     hSim = d3.forceSimulation(data.nodes)              // Force algorithm is applied to data.nodes
         .force("link", (d3.forceLink()                                // This force provides links between nodes
-            .id(function(d, i) { return d.id; })
+            .id(function (d, i) { return d.id; })
             .distance(300)
             .strength(1)                    // This provide  the id of a node                                // and this the list of links
         ))
@@ -813,14 +818,14 @@ function startHeuristicViz(node) {
         .on("mouseleave", removeHighlight)
         .call(
             d3.drag()
-            .on('start', dragstarted)
-            .on('drag', dragged)
-            .on('end', dragended)
+                .on('start', dragstarted)
+                .on('drag', dragged)
+                .on('end', dragended)
         );
 
     node.append('circle')
         .attr('r', 10)
-        .style('fill', (d,i) => getColor(d))
+        .style('fill', (d, i) => getColor(d))
 
     node.append('title')
         .text((d) => d.id)
@@ -835,10 +840,10 @@ function startHeuristicViz(node) {
     // This function is run at each iteration of the force algorithm, updating the node, link, and text positions.
     function ticked() {
         link
-            .attr("x1", function(d) { return d.source.x; })
-            .attr("y1", function(d) { return d.source.y; })
-            .attr("x2", function(d) { return d.target.x; })
-            .attr("y2", function(d) { return d.target.y; });
+            .attr("x1", function (d) { return d.source.x; })
+            .attr("y1", function (d) { return d.source.y; })
+            .attr("x2", function (d) { return d.target.x; })
+            .attr("y2", function (d) { return d.target.y; });
 
         node
             .attr("transform", (d) => "translate(" + d.x + ", " + d.y + ")");
@@ -852,7 +857,7 @@ function startHeuristicViz(node) {
         d.fx = d.x;
         d.fy = d.y;
         d.fixed = false;
-      }
+    }
 
     function dragged(d) {
         d.fx = d3.event.x;
@@ -888,25 +893,25 @@ function startHeuristicViz(node) {
     // Highlights node and all of its predecessors
     function highlight(d) {
         d3.select(this).style('opacity', 0.9);
-        node.style("stroke", function(o) {
+        node.style("stroke", function (o) {
             // d is this
             // o is other
-            if(d.type == "goal") {
-                if(graph.get('goal').preconditions.includes(o.id) || d.id == o.id) {
+            if (d.type == "goal") {
+                if (graph.get('goal').preconditions.includes(o.id) || d.id == o.id) {
                     // o is precondition
                     return '#a7440f';
                 } else {
                     return 'none';
                 }
-            } else if(d.type == "action") {
-                if(actions.get(d.id).get('preconditions').includes(o.id) || d.id == o.id) {
+            } else if (d.type == "action") {
+                if (actions.get(d.id).get('preconditions').includes(o.id) || d.id == o.id) {
                     // o is precondition
                     return '#a7440f';
                 } else {
                     return 'none';
                 }
             } else {
-                if(fluentPreconditions[d.id].includes(o.id) || d.id == o.id) {
+                if (fluentPreconditions[d.id].includes(o.id) || d.id == o.id) {
                     // o is precondition
                     return '#a7440f';
                 } else {
@@ -915,23 +920,23 @@ function startHeuristicViz(node) {
             }
         });
 
-        node.style("opacity", function(o) {
-            if(d.type == "goal") {
-                if(graph.get('goal').preconditions.includes(o.id) || d.id == o.id) {
+        node.style("opacity", function (o) {
+            if (d.type == "goal") {
+                if (graph.get('goal').preconditions.includes(o.id) || d.id == o.id) {
                     // o is precondition
                     return 1;
                 } else {
                     return 0.5;
                 }
-            } else if(d.type == "action") {
-                if(actions.get(d.id).get('preconditions').includes(o.id) || d.id == o.id) {
+            } else if (d.type == "action") {
+                if (actions.get(d.id).get('preconditions').includes(o.id) || d.id == o.id) {
                     // o is precondition
                     return 1;
                 } else {
                     return 0.5;
                 }
             } else {
-                if(fluentPreconditions[d.id].includes(o.id) || d.id == o.id) {
+                if (fluentPreconditions[d.id].includes(o.id) || d.id == o.id) {
                     // o is precondition
                     return 1;
                 } else {
@@ -940,23 +945,23 @@ function startHeuristicViz(node) {
             }
         });
 
-        text.style('opacity', function(o) {
-            if(d.type == "goal") {
-                if(graph.get('goal').preconditions.includes(o.id) || d.id == o.id) {
+        text.style('opacity', function (o) {
+            if (d.type == "goal") {
+                if (graph.get('goal').preconditions.includes(o.id) || d.id == o.id) {
                     // o is precondition
                     return 1;
                 } else {
                     return 0.5;
                 }
-            } else if(d.type == "action") {
-                if(actions.get(d.id).get('preconditions').includes(o.id) || d.id == o.id) {
+            } else if (d.type == "action") {
+                if (actions.get(d.id).get('preconditions').includes(o.id) || d.id == o.id) {
                     // o is precondition
                     return 1;
                 } else {
                     return 0.5;
                 }
             } else {
-                if(fluentPreconditions[d.id].includes(o.id) || d.id == o.id) {
+                if (fluentPreconditions[d.id].includes(o.id) || d.id == o.id) {
                     // o is precondition
                     return 1;
                 } else {
@@ -967,14 +972,14 @@ function startHeuristicViz(node) {
 
         link
             .style('stroke', function (o) {
-                if(o.target.id == d.id) {
+                if (o.target.id == d.id) {
                     return '#69b3b2';
                 } else {
                     return '#b8b8b8';
                 }
             })
-            .style('opacity', function(o) {
-                if(o.target.id == d.id) {
+            .style('opacity', function (o) {
+                if (o.target.id == d.id) {
                     return 1;
                 } else {
                     return 0.5;
@@ -1000,7 +1005,7 @@ function startHeuristicViz(node) {
         var result = updateValue(graph, d.id, true);
 
         // If an update occured
-        if(result[1]) {
+        if (result[1]) {
             window.toastr.success("Value updated!");
             // Update data variable to reflect the update
             data.nodes[d.index].value = graph.get(d.id).value;
@@ -1021,20 +1026,20 @@ function freeze() {
 // Unpacks action name
 function getActionName(name) {
     var n = name[0] + " ";
-    for(const v in name[1]) {
+    for (const v in name[1]) {
         n += v + " ";
     }
     return n;
 }
 
-function getUpdatedFluentValue(node, graph){
+function getUpdatedFluentValue(node, graph) {
     var adders = getAdders(node, graph);
-    var lowestAdder =  Number.POSITIVE_INFINITY;
+    var lowestAdder = Number.POSITIVE_INFINITY;
     //var currentSum = 0;
-    for (adder in adders){
+    for (adder in adders) {
         currentAdder = graph.get(adders[adder]).value;
         //currentSum = getSumOfPreconditions(adder, graph);
-        if (lowestAdder > currentAdder){
+        if (lowestAdder > currentAdder) {
             lowestAdder = currentAdder;
         }
     }
@@ -1045,7 +1050,7 @@ function getSumOfPreconditions(actionNode, graph) {
     var sum = 0;
     graph.get(actionNode).preconditions.forEach(precondition => {
         // Check if the precondition is in the graph (tarski ignores irrelevant ones)
-        if(fluents.has(precondition)) {
+        if (fluents.has(precondition)) {
             sum += graph.get(precondition).value;
             // console.log(graph.get(precondition).value);
         }
@@ -1065,11 +1070,11 @@ function getSumOfPreconditions(actionNode, graph) {
 //     return maxPreconditon;
 // }
 
-function getAdders(fluentNode, graph){
+function getAdders(fluentNode, graph) {
     adders = [];
-    for(let node of graph.keys()) {
-        if(graph.get(node).type == 'action') {
-            if(graph.get(node).effects.includes(fluentNode)) {
+    for (let node of graph.keys()) {
+        if (graph.get(node).type == 'action') {
+            if (graph.get(node).effects.includes(fluentNode)) {
                 adders.push(node);
             }
         }
@@ -1077,37 +1082,37 @@ function getAdders(fluentNode, graph){
     return adders;
 }
 
-function updateValue(graph, node, hAdd){
+function updateValue(graph, node, hAdd) {
     var update = false;
-    if (graph.get(node).type == 'fluent'){
+    if (graph.get(node).type == 'fluent') {
         updateVal = getUpdatedFluentValue(node, graph);
     }
-    else{
-        if (hAdd){
-            updateVal= 1 + getSumOfPreconditions(node, graph);
+    else {
+        if (hAdd) {
+            updateVal = 1 + getSumOfPreconditions(node, graph);
 
         }
-        else{
-            updateVal= 1 + getMaxPrecondition(node, graph);
+        else {
+            updateVal = 1 + getMaxPrecondition(node, graph);
         }
         // Goal node should not have an action cost
         if (node == 'goal')
             updateVal -= 1;
 
     }
-    if (updateVal < graph.get(node).value){
+    if (updateVal < graph.get(node).value) {
         graph.get(node).value = updateVal
         update = true;
     }
     return [graph, update];
 }
 
-function autoUpdate(graph, hAdd, hUpdate=true) {
+function autoUpdate(graph, hAdd, hUpdate = true) {
     var update = true;
     var updateData;
-    while (update){
+    while (update) {
         update = false;
-        for(let node of graph.keys()) {
+        for (let node of graph.keys()) {
             updateData = updateValue(graph, node, hAdd);
             graph = updateData[0];
             if (hUpdate)
@@ -1132,53 +1137,53 @@ function openHeuristicViz() {
 
 define(function () {
     window.d3_loaded = false;
-  return {
-      name: "Heuristic Viz",
-      author: "Caitlin Aspinall, Cam Cunningham, Ellie Sekine, Christian Muise",
-      email: "christian.muise@gmail.com",
-      description: "Heuristic Visualization",
+    return {
+        name: "Heuristic Viz",
+        author: "Caitlin Aspinall, Cam Cunningham, Ellie Sekine, Christian Muise",
+        email: "christian.muise@gmail.com",
+        description: "Heuristic Visualization",
 
-      initialize: function() {
-        var style = document.createElement('tree');
-        style.innerHTML = '.node { cursor:pointer } .node circle { stroke-width:1.5px } .node text { font:10px sans-serif }' +
-              'div.tooltip {position:absolute; padding:6px; font:12px sans-serif; background-color:#FFA; border-radius:8px; pointer-events:none; left:0; top:0}';
-        var ref = document.querySelector('script');
-        ref.parentNode.insertBefore(style, ref);
+        initialize: function () {
+            var style = document.createElement('tree');
+            style.innerHTML = '.node { cursor:pointer } .node circle { stroke-width:1.5px } .node text { font:10px sans-serif }' +
+                'div.tooltip {position:absolute; padding:6px; font:12px sans-serif; background-color:#FFA; border-radius:8px; pointer-events:none; left:0; top:0}';
+            var ref = document.querySelector('script');
+            ref.parentNode.insertBefore(style, ref);
 
-        // Init grounding
-        initializeGrounding();
+            // Init grounding
+            initializeGrounding();
 
-        // Adds menu button that allows for choosing files
-        window.add_menu_button('HeurViz', 'heurVizMenuItem', 'glyphicon-tower',"openHeuristicViz()");
-        window.inject_styles('.viz_display {padding: 20px 0px 0px 40px;}')
+            // Adds menu button that allows for choosing files
+            window.add_menu_button('HeurViz', 'heurVizMenuItem', 'glyphicon-tower', "openHeuristicViz()");
+            window.inject_styles('.viz_display {padding: 20px 0px 0px 40px;}')
 
-        // Register this as a user of the file chooser interface
-        window.register_file_chooser('heurViz',
-        {
-            showChoice: function() {
-                // Button name, Description
-                window.setup_file_chooser('Go', 'Display Visualization');
-                $('#plannerURLInput').hide();
-            },
-            // Called when go is hit
-            selectChoice: loadStatespace
-        });
+            // Register this as a user of the file chooser interface
+            window.register_file_chooser('heurViz',
+                {
+                    showChoice: function () {
+                        // Button name, Description
+                        window.setup_file_chooser('Go', 'Display Visualization');
+                        $('#plannerURLInput').hide();
+                    },
+                    // Called when go is hit
+                    selectChoice: loadStatespace
+                });
         },
 
-        disable: function() {
-          // This is called whenever the plugin is disabled
-          window.toastr.warning("Plugin disabled")
-          window.remove_menu_button("heurVizMenuItem");
+        disable: function () {
+            // This is called whenever the plugin is disabled
+            window.toastr.warning("Plugin disabled")
+            window.remove_menu_button("heurVizMenuItem");
         },
 
-        save: function() {
-          // Used to save the plugin settings for later
-          return {did:window.viz_dom_id};
+        save: function () {
+            // Used to save the plugin settings for later
+            return { did: window.viz_dom_id };
         },
 
-        load: function(settings) {
-          // Restore the plugin settings from a previous save call
-          window.viz_dom_id = settings['did'];
+        load: function (settings) {
+            // Restore the plugin settings from a previous save call
+            window.viz_dom_id = settings['did'];
         }
-  };
+    };
 });
