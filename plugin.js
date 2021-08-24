@@ -170,8 +170,8 @@ function nodeSelected(d) {
     window.current_state_node = d;
     var action_desc = "";
     if (d.data.precondition)
-        action_desc = '<br />' + infix(d.data.precondition.toLowerCase());
-    $('#statename').html(d.data.name + action_desc);
+        action_desc = infix(d.data.precondition.toLowerCase());
+    $('#statename').html('<div style="float:left; padding-left:13px">' + d.data.name + '</div><div style="display:inline-block">' + action_desc + '</div>');
     var fluents = [];
     d.data.strState.forEach(f => {
         fluents.push(infix(f).toLowerCase());
